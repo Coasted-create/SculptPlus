@@ -186,6 +186,101 @@ public sealed partial class SculptWindow
         return face + Vector3.Normalize(back) * depth;
     }
 
+    private enum GrabKind
+    {
+        Dot,
+        Arrow,
+        Ring,
+    }
+
+    private GrabKind _dragKind;
+    private int _dragAxis;
+
+    private static readonly Vector4[] AxisColours = { new(0.96f, 0.38f, 0.44f, 1f), new(0.47f, 0.86f, 0.52f, 1f), new(0.42f, 0.63f, 1f, 1f) };
+    private static readonly Vector3[] Axes = { Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ };
+
+    private static string AxisName(int axis)
+        => axis switch
+        {
+            0 => Loc.T("left and right"),
+            1 => Loc.T("up and down"),
+            _ => Loc.T("front and back"),
+        };
+
+    /// <summary>
+    /// The arrows and rings on the part you hold: three directions of the model (side, up, front), each with an arrow to
+    /// move along it and a ring to turn around it. Where things are on screen, for drawing and for the mouse.
+    /// </summary>
+    private sealed class Gizmo
+    {
+        public LiveBone Bone;
+        public Vector2 Centre;
+        public float Length;                       // of an arrow, in metres
+        public readonly Vector3[] World = new Vector3[3]; // the three directions in the world
+        public readonly Vector2[] Tip = new Vector2[3];
+        public readonly bool[] TipUsable = new bool[3];
+        public readonly Vector2[][] Ring = new Vector2[3][];
+    }
+
+    private Gizmo? BuildGizmo(LiveBone bone, float s)
+    {
+        var gui = _plugin.GameGui;
+        if (!gui.WorldToScreen(bone.World, out var centre))
+            return null;
+        var perMetre = PixelsPerMetre(bone.World);
+        if (perMetre < 1f)
+            return null;
+        var gizmo = new Gizmo { Bone = bone, Centre = centre, Length = Math.Clamp(70f * s * 1.5f / perMetre, 0.004f, 0.8f) };
+        for (var a = 0; a < 3; ++a)
+            gizmo.World[a] = Vector3.Transform(Axes[a], _rootRotation);
+        for (var a = 0; a < 3; ++a)
+        {
+            gui.WorldToScreen(bone.World + gizmo.World[a] * gizmo.Length, out gizmo.Tip[a]);
+            // an arrow that points at you (or away) is a stub on screen: shown faintly, not for grabbing
+            gizmo.TipUsable[a] = Vector2.Distance(gizmo.Tip[a], centre) >= 16f * s;
+
+            // the ring around this direction lies in the plane of the other two; going round it is a turn the right-handed way
+            var u = gizmo.World[(a + 1) % 3];
+            var v = gizmo.World[(a + 2) % 3];
+            const int steps = 40;
+            var ring = new Vector2[steps + 1];
+            for (var i = 0; i <= steps; ++i)
+            {
+                var angle = i * MathF.Tau / steps;
+                gui.WorldToScreen(bone.World + (u * MathF.Cos(angle) + v * MathF.Sin(angle)) * gizmo.Length * 0.72f, out ring[i]);
+            }
+
+            gizmo.Ring[a] = ring;
+        }
+
+        return gizmo;
+    }
+
+    private static float DistanceToSegment(Vector2 p, Vector2 a, Vector2 b)
+    {
+        var ab = b - a;
+        var t  = ab.LengthSquared() < 1e-6f ? 0f : Math.Clamp(Vector2.Dot(p - a, ab) / ab.LengthSquared(), 0f, 1f);
+        return Vector2.Distance(p, a + ab * t);
+    }
+
+    /// <summary> The ring vertex nearest to a point (and how far it is). </summary>
+    private static (int Index, float Distance) NearestOnRing(Vector2[] ring, Vector2 p)
+    {
+        var best  = 0;
+        var bestD = float.MaxValue;
+        for (var i = 0; i + 1 < ring.Length; ++i)
+        {
+            var d = DistanceToSegment(p, ring[i], ring[i + 1]);
+            if (d < bestD)
+            {
+                bestD = d;
+                best  = i;
+            }
+        }
+
+        return (best, bestD);
+    }
+
     private void DrawHandles(Dictionary<string, LiveBone> bones, float s)
     {
         if (bones.Count == 0)
@@ -219,13 +314,23 @@ public sealed partial class SculptWindow
             shown.Add((bone, at));
         }
 
-        // the one under the mouse (not through another window)
-        (LiveBone Bone, Vector2 At)? target = null;
+        // arrows and rings on the part you hold (not while you drag its dot freely: they would be in the way)
+        Gizmo? gizmo = null;
+        if (Config.Arrows && _selected is not null && bones.TryGetValue(_selected, out var selected) && !(_dragging is not null && _dragKind == GrabKind.Dot))
+            gizmo = BuildGizmo(selected, s);
+
+        // what is under the mouse (not through another window)
+        (GrabKind Kind, int Axis, LiveBone Bone, Vector2 At)? target = null;
         if (_dragging is not null)
         {
-            foreach (var x in shown)
-                if (x.Bone.Name == _dragging)
-                    target = x;
+            if (_dragKind == GrabKind.Dot)
+            {
+                foreach (var x in shown)
+                    if (x.Bone.Name == _dragging)
+                        target = (GrabKind.Dot, 0, x.Bone, x.At);
+            }
+            else if (gizmo is not null && gizmo.Bone.Name == _dragging)
+                target = (_dragKind, _dragAxis, gizmo.Bone, mouse);
         }
         else
         {
@@ -234,16 +339,46 @@ public sealed partial class SculptWindow
             // The window under the mouse may be our own little grab window from the last frame: that one counts as "the
             // game" (asking whether its button was hovered comes a frame too late: the dots would flicker and take no click).
             var mine    = _grabHovered || _grabMin is { } gm && mouse.X >= gm.X && mouse.Y >= gm.Y && mouse.X <= gm.X + _grabSize.X && mouse.Y <= gm.Y + _grabSize.Y;
+            var free    = !overWindow || mine;
             var nearest = float.MaxValue;
-            var best    = (radius * 2.6f) * (radius * 2.6f);
-            foreach (var x in shown)
+
+            // the arrows and rings come first: they lie on top of the dots around the part you hold
+            if (free && gizmo is not null && Vector2.Distance(mouse, gizmo.Centre) > radius * 1.8f)
             {
-                var dist = Vector2.DistanceSquared(x.At, mouse);
-                nearest = MathF.Min(nearest, dist);
-                if (dist < best && (!overWindow || mine))
+                var best = float.MaxValue;
+                for (var a = 0; a < 3; ++a)
                 {
-                    best   = dist;
-                    target = x;
+                    if (gizmo.TipUsable[a])
+                    {
+                        var d = MathF.Min(Vector2.Distance(mouse, gizmo.Tip[a]) - 5f * s, DistanceToSegment(mouse, gizmo.Centre, gizmo.Tip[a]));
+                        if (d < 5f * s && d < best)
+                        {
+                            best   = d;
+                            target = (GrabKind.Arrow, a, gizmo.Bone, mouse);
+                        }
+                    }
+
+                    var ring = NearestOnRing(gizmo.Ring[a], mouse).Distance;
+                    if (ring < 4.5f * s && ring < best - 1f)
+                    {
+                        best   = ring;
+                        target = (GrabKind.Ring, a, gizmo.Bone, mouse);
+                    }
+                }
+            }
+
+            if (target is null)
+            {
+                var best = (radius * 2.6f) * (radius * 2.6f);
+                foreach (var x in shown)
+                {
+                    var dist = Vector2.DistanceSquared(x.At, mouse);
+                    nearest = MathF.Min(nearest, dist);
+                    if (dist < best && free)
+                    {
+                        best   = dist;
+                        target = (GrabKind.Dot, 0, x.Bone, x.At);
+                    }
                 }
             }
 
@@ -254,7 +389,7 @@ public sealed partial class SculptWindow
         var brush = Config.Brush;
         foreach (var (bone, at) in shown)
         {
-            var hot    = target is { } t && t.Bone.Name == bone.Name;
+            var hot    = target is { Kind: GrabKind.Dot } t && t.Bone.Name == bone.Name;
             var edited = Sculptor.IsEdited(bone.Name);
             var colour = bone.Name == _selected ? Theme.Accent : edited && Sculptor.AtLimit(bone.Name) ? Theme.Warn : edited ? Theme.Good : new Vector4(1, 1, 1, 0.75f);
             draw.AddCircleFilled(at, hot ? radius * 1.5f : radius, Theme.U32(new Vector4(0, 0, 0, 0.55f)));
@@ -266,6 +401,9 @@ public sealed partial class SculptWindow
                 draw.AddCircle(at, radius * 1.3f, Theme.U32(Theme.Accent with { W = 0.6f }), 0, 1f * s);
         }
 
+        if (gizmo is not null)
+            DrawGizmo(draw, gizmo, target is { Kind: not GrabKind.Dot } hotPart ? (hotPart.Kind, hotPart.Axis) : null, s);
+
         _grabHovered = false;
         if (target is not { } grab)
         {
@@ -276,7 +414,7 @@ public sealed partial class SculptWindow
 
         // a tiny window under the mouse takes the click, so the game does not turn the camera or target something
         var box = new Vector2(MathF.Max(radius * 4.4f, 18f * s));
-        var pos = _dragging is not null ? mouse - box / 2 : grab.At - box / 2;
+        var pos = _dragging is not null || grab.Kind != GrabKind.Dot ? mouse - box / 2 : grab.At - box / 2;
         _grabMin  = pos;
         _grabSize = box;
         ImGui.SetNextWindowPos(pos);
@@ -292,20 +430,55 @@ public sealed partial class SculptWindow
             var name = grab.Bone.Name;
             if (ImGui.IsItemActivated())
             {
-                _lastAction  = "pressed " + name;
-                _selected    = name;
-                _dragging    = name;
-                _turning     = !ImGui.IsMouseDown(ImGuiMouseButton.Left);
-                _rightTravel = 0;
-                if (!_turning)
-                    Sculptor.Checkpoint();
+                var left = ImGui.IsMouseDown(ImGuiMouseButton.Left);
+                if (grab.Kind == GrabKind.Dot || left)
+                {
+                    _lastAction  = "pressed " + name;
+                    _selected    = name;
+                    _dragging    = name;
+                    _dragKind    = grab.Kind;
+                    _dragAxis    = grab.Axis;
+                    _turning     = grab.Kind == GrabKind.Dot && !left;
+                    _rightTravel = 0;
+                    if (!_turning)
+                        Sculptor.Checkpoint();
+                }
             }
 
             var held = _turning ? ImGui.IsMouseDown(ImGuiMouseButton.Right) : ImGui.IsMouseDown(ImGuiMouseButton.Left);
             if (_dragging == name && ImGui.IsItemActive() && held)
             {
                 var delta = io.MouseDelta;
-                if (delta != Vector2.Zero && Camera(grab.Bone.World) is { } cam)
+                if (delta == Vector2.Zero)
+                {
+                }
+                else if (_dragKind == GrabKind.Arrow && gizmo is not null)
+                {
+                    // along the arrow only: the part of the mouse's way that runs along it on screen
+                    var along = gizmo.Tip[_dragAxis] - gizmo.Centre;
+                    if (along.LengthSquared() > 1f)
+                    {
+                        var metres = Vector2.Dot(delta, along) / along.LengthSquared() * gizmo.Length;
+                        var move   = ToModel(gizmo.World[_dragAxis] * metres);
+                        _lastAction = $"moved {name} {metres * 1000:0.0} mm {AxisName(_dragAxis)}";
+                        Drag(grab.Bone, move, bones, brush);
+                    }
+                }
+                else if (_dragKind == GrabKind.Ring && gizmo is not null)
+                {
+                    // round the ring: the mouse's way along the ring where you are, as an angle
+                    var ring    = gizmo.Ring[_dragAxis];
+                    var at      = NearestOnRing(ring, mouse).Index;
+                    var tangent = ring[at + 1] - ring[at];
+                    var reach   = MathF.Max(Vector2.Distance(mouse, gizmo.Centre), 12f * s);
+                    if (tangent.LengthSquared() > 1e-4f)
+                    {
+                        var angle = Vector2.Dot(delta, Vector2.Normalize(tangent)) / reach;
+                        _lastAction = $"turned {name} {angle * 180 / MathF.PI:0.0}° around {AxisName(_dragAxis)}";
+                        Sculptor.TurnModel(grab.Bone, Axes[_dragAxis], angle);
+                    }
+                }
+                else if (_dragKind == GrabKind.Dot && Camera(grab.Bone.World) is { } cam)
                 {
                     if (_turning)
                     {
@@ -331,7 +504,7 @@ public sealed partial class SculptWindow
             }
             else if (_dragging == name)
             {
-                if (_turning && _rightTravel < 4f)
+                if (_dragKind == GrabKind.Dot && _turning && _rightTravel < 4f)
                 {
                     Sculptor.Checkpoint();
                     Sculptor.ResetBone(name);
@@ -343,22 +516,55 @@ public sealed partial class SculptWindow
             if (ImGui.IsItemHovered())
             {
                 var wheel = io.MouseWheel;
-                if (wheel != 0)
+                if (wheel != 0 && grab.Kind != GrabKind.Ring)
                 {
                     if ((DateTime.UtcNow - _lastWheelCheckpoint).TotalSeconds > 0.8)
                         Sculptor.Checkpoint();
                     _lastWheelCheckpoint = DateTime.UtcNow;
                     _selected            = name;
-                    Sculptor.Scale(name, new Vector3(1f + 0.03f * wheel));
+                    if (grab.Kind == GrabKind.Arrow)
+                        Sculptor.ScaleModel(grab.Bone, Axes[grab.Axis] * (0.03f * wheel)); // bigger in that one direction
+                    else
+                        Sculptor.Scale(name, new Vector3(1f + 0.03f * wheel));
                 }
 
                 if (_dragging is null)
-                    ImGui.SetTooltip(Label(name) + "\n" + Loc.T("Drag: move · Shift+drag: nearer/further · Right-drag: turn · Wheel: size · Right-click: put back"));
+                    ImGui.SetTooltip(grab.Kind switch
+                    {
+                        GrabKind.Arrow => Loc.F("Drag: move {0} only · Wheel: bigger or smaller in that direction", AxisName(grab.Axis)),
+                        GrabKind.Ring  => Loc.F("Drag round the ring: turn around the direction {0}", AxisName(grab.Axis)),
+                        _              => Label(name) + "\n" + Loc.T("Drag: move · Shift+drag: nearer/further · Right-drag: turn · Wheel: size · Right-click: put back"),
+                    });
             }
         }
 
         ImGui.End();
         ImGui.PopStyleVar(2);
+    }
+
+    private static void DrawGizmo(ImDrawListPtr draw, Gizmo gizmo, (GrabKind Kind, int Axis)? hot, float s)
+    {
+        for (var a = 0; a < 3; ++a)
+        {
+            var colour  = AxisColours[a];
+            var ringHot = hot is { Kind: GrabKind.Ring } r && r.Axis == a;
+            var ring    = gizmo.Ring[a];
+            var ringCol = Theme.U32(colour with { W = ringHot ? 1f : 0.55f });
+            for (var i = 0; i + 1 < ring.Length; ++i)
+                draw.AddLine(ring[i], ring[i + 1], ringCol, (ringHot ? 3f : 1.5f) * s);
+        }
+
+        for (var a = 0; a < 3; ++a)
+        {
+            var colour   = AxisColours[a];
+            var arrowHot = hot is { Kind: GrabKind.Arrow } h && h.Axis == a;
+            var usable   = gizmo.TipUsable[a];
+            var col      = Theme.U32(colour with { W = usable ? 1f : 0.35f });
+            draw.AddLine(gizmo.Centre, gizmo.Tip[a], Theme.U32(new Vector4(0, 0, 0, usable ? 0.5f : 0.2f)), (arrowHot ? 5.5f : 4f) * s);
+            draw.AddLine(gizmo.Centre, gizmo.Tip[a], col, (arrowHot ? 3.5f : 2f) * s);
+            draw.AddCircleFilled(gizmo.Tip[a], (arrowHot ? 7.5f : 5.5f) * s, Theme.U32(new Vector4(0, 0, 0, usable ? 0.55f : 0.2f)));
+            draw.AddCircleFilled(gizmo.Tip[a], (arrowHot ? 6f : 4f) * s, col);
+        }
     }
 
     private Vector3 ToModel(Vector3 world)

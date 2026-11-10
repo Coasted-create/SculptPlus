@@ -117,6 +117,18 @@ public sealed partial class SculptWindow : Window
         Sculptor.ShowOriginal = beforeHeld || io.KeyCtrl && io.KeyAlt && !io.WantTextInput;
         _hideDots             = io.KeyAlt && !io.WantTextInput;
 
+        // A/B: hold to see one kept shape instead of the sculpt
+        var other = Config.CompareShape.Length > 0 ? Config.Shapes.FirstOrDefault(x => x.Name == Config.CompareShape) : null;
+        ImGui.SameLine();
+        Theme.Button("A/B", new Vector2(0, 0), Theme.Kind.Ghost, FontAwesomeIcon.ExchangeAlt, other is not null, "##ab");
+        var abHeld = ImGui.IsItemActive();
+        Tip(other is null
+            ? Loc.T("Compare the sculpt with a kept shape. Choose the shape first: its A/B button under \"Keep it\".")
+            : Loc.F("Hold the mouse button down on this (or hold Alt+B): you see the kept shape \"{0}\" instead of the sculpt. Let go: the sculpt again.", other.Name));
+        Sculptor.Compare = other is not null && !Sculptor.ShowOriginal && (abHeld || io.KeyAlt && !io.KeyCtrl && !io.WantTextInput && ImGui.IsKeyDown(ImGuiKey.B))
+            ? other
+            : null;
+
         var speed = Sculptor.Speed * 100f;
         ImGui.SetNextItemWidth(120 * s);
         if (ImGui.SliderFloat(Loc.T("Movement") + "##speed", ref speed, 0f, 100f, speed < 0.5f ? Loc.T("frozen") : speed > 99.5f ? Loc.T("normal") : "%.0f %%"))
@@ -183,7 +195,7 @@ public sealed partial class SculptWindow : Window
 
         EvolveTick();
         PictureTick(bones);
-        if (!Sculptor.ShowOriginal && !_hideDots)
+        if (!Sculptor.ShowOriginal && Sculptor.Compare is null && !_hideDots)
             DrawHandles(bones, s);
     }
 
@@ -830,6 +842,21 @@ public sealed partial class SculptWindow : Window
             }
 
             Tip(Loc.T("Copies this shape as a line of text for a friend."));
+            if (sculpting)
+            {
+                ImGui.SameLine();
+                var isB = Config.CompareShape == shape.Name;
+                ImGui.PushStyleColor(ImGuiCol.Button, isB ? Theme.AccentDeep : Theme.Card);
+                if (ImGui.SmallButton("A/B"))
+                {
+                    Config.CompareShape = isB ? string.Empty : shape.Name;
+                    _plugin.SaveConfig();
+                }
+
+                ImGui.PopStyleColor();
+                Tip(Loc.T("Makes this the shape that the A/B button at the top (and Alt+B) flips to, for comparing it with what you sculpt."));
+            }
+
             if (sculpting && bones is not null)
             {
                 ImGui.SameLine();
@@ -890,7 +917,15 @@ public sealed partial class SculptWindow : Window
     private void DrawOptions(float s)
     {
         Wrapped(Theme.Muted, Loc.T("On a dot: drag moves · Shift+drag nearer/further · right-drag turns · wheel sizes · right-click puts back."));
-        Wrapped(Theme.Muted, Loc.T("Anywhere: Ctrl+Z undo · Ctrl+Y redo · hold Alt hides the dots · hold Ctrl+Alt shows the character without the sculpt."));
+        Wrapped(Theme.Muted, Loc.T("On the part you hold: drag an arrow to move in that direction only (red: left and right, green: up and down, blue: front and back) · wheel on an arrow sizes in that direction · drag round a ring to turn around its direction."));
+        Wrapped(Theme.Muted, Loc.T("Anywhere: Ctrl+Z undo · Ctrl+Y redo · hold Alt hides the dots · hold Ctrl+Alt shows the character without the sculpt · hold Alt+B shows the A/B shape."));
+
+        var arrows = Config.Arrows;
+        if (ImGui.Checkbox(Loc.T("Arrows and rings on the part you hold"), ref arrows))
+        {
+            Config.Arrows = arrows;
+            _plugin.SaveConfig();
+        }
 
         var size = Config.DotSize;
         ImGui.SetNextItemWidth(140 * s);

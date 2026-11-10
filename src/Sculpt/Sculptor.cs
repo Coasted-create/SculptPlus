@@ -139,6 +139,7 @@ public sealed class Sculptor : IDisposable
         Active = false;
         UpdateFreeze();
         _showOriginal = false;
+        _compare      = null;
         _plugin.SaveConfig();
         if (WornShape() is { } worn)
             Send(worn.Output);
@@ -166,7 +167,7 @@ public sealed class Sculptor : IDisposable
         if (HasChanges && (DateTime.UtcNow - _historyAt).TotalMinutes >= 3)
             AddHistory();
 
-        if (_showOriginal || !_dirty || (DateTime.UtcNow - _lastSent).TotalMilliseconds < 50)
+        if (_showOriginal || _compare is not null || !_dirty || (DateTime.UtcNow - _lastSent).TotalMilliseconds < 50)
             return;
         if (_sliders.Values.Any(v => MathF.Abs(v) > 0.001f) && Live.Count == 0)
             return; // the sliders need your bones; next frame
@@ -222,6 +223,24 @@ public sealed class Sculptor : IDisposable
         // it again and again is the only way to hold it at all)
         _plugin.Speed.Hold(address, Speed);
         _frozen = true;
+    }
+
+    private SculptShape? _compare;
+
+    /// <summary> A/B: while a kept shape is set here, you see that shape instead of the sculpt; null shows the sculpt again. </summary>
+    public SculptShape? Compare
+    {
+        get => _compare;
+        set
+        {
+            if (ReferenceEquals(_compare, value) || !Active)
+                return;
+            _compare = value;
+            if (value is null)
+                _dirty = true;
+            else
+                Send(value.Output);
+        }
     }
 
     /// <summary> Before / after: true shows you without the sculpt, false with it again. </summary>
@@ -443,6 +462,23 @@ public sealed class Sculptor : IDisposable
         {
             var (m, t, s) = Get(name);
             Set(name, m, t, s * factor);
+        }
+    }
+
+    /// <summary>
+    /// Sizes a bone in the model's directions (wide, high, deep; as powers), whichever way the bone is turned; its twin gets
+    /// the same.
+    /// </summary>
+    public void ScaleModel(LiveBone bone, Vector3 wideHighDeep)
+    {
+        Apply(bone);
+        if (Symmetry && SculptBones.MirrorOf(bone.Name) is { } twin && Live.TryGetValue(twin, out var other))
+            Apply(other);
+
+        void Apply(LiveBone b)
+        {
+            var (m, t, s) = Get(b.Name);
+            Set(b.Name, m, t, s * LocalSize(b, wideHighDeep));
         }
     }
 

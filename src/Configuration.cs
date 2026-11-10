@@ -37,6 +37,12 @@ public sealed class Configuration : IPluginConfiguration
     /// <summary> Keep it natural: no part goes further from where it started than a sensible range. </summary>
     public bool Natural { get; set; } = true;
 
+    /// <summary> Arrows and rings on the part you hold, for moving and turning it along one direction only. </summary>
+    public bool Arrows { get; set; } = true;
+
+    /// <summary> The kept shape that A/B compares the sculpt with (empty: none chosen). </summary>
+    public string CompareShape { get; set; } = string.Empty;
+
     /// <summary> A line with what the mouse sees, for reporting problems. </summary>
     public bool TestLine { get; set; }
 }

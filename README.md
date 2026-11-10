@@ -10,14 +10,16 @@ profile and never changes your Customize+ data.
 
 - **Dots on the character.** Drag a dot to move that part, scroll on it to resize, right-drag to turn, Shift+drag for
   nearer/further, right-click to put the part back. Left and right sides move together unless you switch that off.
+  The part you hold gets arrows and rings for moving, sizing and turning along one direction only.
 - **Sliders in plain words.** Fuller lips, bigger eyes, wider jaw, wider hips, thicker thighs, taller, and more.
   One-click starting points (softer, sharper, doll-like, curvier, athletic…) set several sliders at once.
 - **Dice and Evolve.** Roll chosen parts at random with a strength you set. Evolve shows four variations, you take the
   one you like best, and the next four vary around it.
 - **Tools.** Soft brush (neighbouring parts follow a drag), blend between two shapes, make one side like the other, a
   touch of asymmetry, lock parts against the dice, "keep it natural" limits, undo/redo and an automatic history.
-- **Seeing what you do.** Freeze or slow the character while you sculpt, hold a button to compare with before, play an
-  expression to check the face in motion, filter the dots by part, hide dots on the far side of the head.
+- **Seeing what you do.** Freeze or slow the character while you sculpt, hold a button to compare with before or with a
+  kept shape (A/B), play an expression to check the face in motion, filter the dots by part, hide dots on the far side
+  of the head.
 - **Keeping shapes.** Keep a shape with a picture, wear it (it is put back after area changes and logins), share it as a
   line of text, or copy it as a Customize+ template.
 - **Your Customize+ templates.** Switch the templates of your active profile on and off from the same window.
@@ -45,11 +47,18 @@ profile and never changes your Customize+ data.
 | Mouse wheel | Make it bigger or smaller |
 | Right-click | Put it back |
 
+| On the part you hold | |
+|---|---|
+| Drag an arrow | Move in that direction only (red: left/right, green: up/down, blue: front/back) |
+| Wheel on an arrow | Bigger or smaller in that direction |
+| Drag round a ring | Turn around that direction |
+
 | Anywhere | |
 |---|---|
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Hold Alt | Hide the dots |
 | Hold Ctrl+Alt | Show the character without the sculpt |
+| Hold Alt+B | Show the kept shape chosen for A/B instead of the sculpt |
 
 ## Good to know
 
