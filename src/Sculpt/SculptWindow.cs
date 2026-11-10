@@ -50,16 +50,57 @@ public sealed partial class SculptWindow : Window
         _plugin             = plugin;
         AllowBackgroundBlur = true;
         RespectCloseHotkey  = false;
-        SizeConstraints     = new WindowSizeConstraints { MinimumSize = new Vector2(400, 300), MaximumSize = new Vector2(800, 1800) };
+        SizeConstraints     = FullConstraints;
         Size                = new Vector2(450, 720);
         SizeCondition       = ImGuiCond.FirstUseEver;
+
+        // a button in the title bar that makes the window small (the dots keep working)
+        _smallButton = new TitleBarButton
+        {
+            Icon        = FontAwesomeIcon.WindowMinimize,
+            IconOffset  = new Vector2(2.5f, 1f),
+            Priority    = 100, // next to the close button, before Dalamud's own menu button
+            Click       = _ => ToggleSmall(),
+            ShowTooltip = () => ImGui.SetTooltip(_small
+                ? Loc.T("Back to the full window")
+                : Loc.T("Make the window small: only the top row stays, the dots keep working")),
+        };
+        TitleBarButtons.Add(_smallButton);
+    }
+
+    private const ImGuiWindowFlags FullFlags = ImGuiWindowFlags.NoCollapse;
+    private static readonly WindowSizeConstraints FullConstraints = new() { MinimumSize = new Vector2(400, 300), MaximumSize = new Vector2(800, 1800) };
+
+    private readonly TitleBarButton _smallButton;
+    private bool _small;
+    private Vector2 _fullSize;
+    private bool _restoreSize;
+    private bool _titleSpacing;
+
+    private void ToggleSmall()
+    {
+        _small            = !_small;
+        _smallButton.Icon = _small ? FontAwesomeIcon.WindowMaximize : FontAwesomeIcon.WindowMinimize;
     }
 
     public override void PreDraw()
-        => _plugin.Theme.Push();
+    {
+        // small: as large as its one row, no minimum
+        Flags           = _small ? FullFlags | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar : FullFlags;
+        SizeConstraints = _small ? null : FullConstraints;
+        _plugin.Theme.Push();
+    }
 
     public override void PostDraw()
-        => _plugin.Theme.Pop();
+    {
+        if (_titleSpacing)
+        {
+            ImGui.PopStyleVar();
+            _titleSpacing = false;
+        }
+
+        _plugin.Theme.Pop();
+    }
 
     public override void OnClose()
     {
@@ -68,6 +109,29 @@ public sealed partial class SculptWindow : Window
     }
 
     public override void Draw()
+    {
+        // the size of the full window is remembered, and put back when you come out of the small one
+        if (_small)
+            _restoreSize = true;
+        else if (_restoreSize)
+        {
+            if (_fullSize.X > 0)
+                ImGui.SetWindowSize(_fullSize);
+            _restoreSize = false;
+        }
+        else
+            _fullSize = ImGui.GetWindowSize();
+
+        DrawContent();
+
+        // Dalamud draws the title bar buttons after this, and places them by the spacing in force then. With this look's
+        // wide padding they would sit on top of the close button; more spacing moves them clear of it and of each other.
+        var style = ImGui.GetStyle();
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemInnerSpacing, new Vector2(style.FramePadding.X + 8f * Theme.S, style.ItemInnerSpacing.Y));
+        _titleSpacing = true;
+    }
+
+    private void DrawContent()
     {
         var s = Theme.S;
         _plugin.Pictures.Tick();
@@ -128,6 +192,16 @@ public sealed partial class SculptWindow : Window
         Sculptor.Compare = other is not null && !Sculptor.ShowOriginal && (abHeld || io.KeyAlt && !io.KeyCtrl && !io.WantTextInput && ImGui.IsKeyDown(ImGuiKey.B))
             ? other
             : null;
+
+        if (_small)
+        {
+            // only the top row; everything on the character goes on as usual
+            EvolveTick();
+            PictureTick(bones);
+            if (!Sculptor.ShowOriginal && Sculptor.Compare is null && !_hideDots)
+                DrawHandles(bones, s);
+            return;
+        }
 
         var speed = Sculptor.Speed * 100f;
         ImGui.SetNextItemWidth(120 * s);
@@ -201,6 +275,17 @@ public sealed partial class SculptWindow : Window
 
     private void DrawWelcome(float s)
     {
+        if (_small)
+        {
+            if (Theme.Button(Loc.T("Sculpt me"), new Vector2(0, 0), Theme.Kind.Primary, FontAwesomeIcon.HandSparkles, true, "##startsmall"))
+            {
+                _message = string.Empty;
+                Sculptor.Start();
+            }
+
+            return;
+        }
+
         Wrapped(Theme.Muted, Loc.T("Shape a character by hand: dots appear on it. Drag a dot to move that part, scroll on it to make it bigger or smaller, right-click to put it back. It shows live through Customize+ and starts from the profile you have there; nothing in Customize+ is changed."));
         ImGui.Spacing();
         if (!Sculptor.Available)
