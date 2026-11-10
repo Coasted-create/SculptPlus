@@ -201,27 +201,28 @@ public sealed class Sculptor : IDisposable
         set => _plugin.Config.Speed = Math.Clamp(value, 0f, 1f);
     }
 
-    /// <summary> Framework thread: holds the character at the chosen speed while sculpting, and lets go otherwise. </summary>
+    /// <summary> Framework thread: holds you at the chosen speed while sculpting, and lets go otherwise. </summary>
     private void UpdateFreeze()
     {
-        var want = Active && Speed < 0.995f && DateTime.UtcNow >= _moveUntil;
-        if (!want && !_frozen)
-            return;
-        var address = _frozenAddress != nint.Zero && !Active ? _frozenAddress : Address;
-        if (address == nint.Zero || !_plugin.Objects.Any(o => o.Address == address))
+        var want    = Active && Speed < 0.995f && DateTime.UtcNow >= _moveUntil;
+        var address = want ? Address : nint.Zero;
+        if (address == nint.Zero)
         {
-            _frozen        = false;
-            _frozenAddress = nint.Zero;
+            if (_frozen)
+            {
+                var held = _plugin.Speed.Held;
+                _plugin.Speed.Release(held != nint.Zero && _plugin.Objects.LocalPlayer?.Address == held);
+            }
+
+            _frozen = false;
             return;
         }
 
-        // (the game sets the speed back now and then, so it is held every frame)
-        SculptBones.SetAnimationSpeed(address, want ? Speed : 1f);
-        _frozen        = want;
-        _frozenAddress = want ? address : nint.Zero;
+        // (every frame: the speed may have changed, and where the game's own setting could not be listened to, writing
+        // it again and again is the only way to hold it at all)
+        _plugin.Speed.Hold(address, Speed);
+        _frozen = true;
     }
-
-    private nint _frozenAddress;
 
     /// <summary> Before / after: true shows you without the sculpt, false with it again. </summary>
     public bool ShowOriginal

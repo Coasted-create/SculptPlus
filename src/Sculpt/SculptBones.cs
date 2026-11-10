@@ -62,17 +62,6 @@ public static unsafe class SculptBones
         return null;
     }
 
-    /// <summary>
-    /// Sets how fast a character's animations play (0: stands frozen, 1: normal). Only the picture on your screen: the
-    /// game and other players still see you move normally.
-    /// </summary>
-    public static void SetAnimationSpeed(nint gameObject, float speed)
-    {
-        if (gameObject == nint.Zero || !((CsGameObject*)gameObject)->IsCharacter())
-            return;
-        ((FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)gameObject)->Timeline.OverallSpeed = speed;
-    }
-
     /// <summary> Every bone of a character with its place in the world and in the model. Draw or framework thread. </summary>
     public static Dictionary<string, LiveBone> Read(nint gameObject, out Quaternion rootRotation, out Vector3 rootScale)
     {

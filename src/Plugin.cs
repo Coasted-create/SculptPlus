@@ -29,12 +29,13 @@ public sealed class Plugin : IDalamudPlugin
     public IPluginLog Log { get; }
     public Configuration Config { get; }
     public Theme Theme { get; }
+    public AnimationSpeed Speed { get; }
     public Sculptor Sculptor { get; }
     public ShapePictures Pictures { get; }
     public SculptWindow Window { get; }
 
     public Plugin(IDalamudPluginInterface pi, ICommandManager commands, IFramework framework, IObjectTable objects, IGameGui gameGui,
-        ITextureProvider textures, ITextureReadbackProvider readback, IPluginLog log, ICondition condition)
+        ITextureProvider textures, ITextureReadbackProvider readback, IPluginLog log, ICondition condition, IGameInteropProvider interop)
     {
         PluginInterface = pi;
         _commands       = commands;
@@ -49,6 +50,7 @@ public sealed class Plugin : IDalamudPlugin
         Config = pi.GetPluginConfig() as Configuration ?? new Configuration();
         ApplyLanguage();
         Theme    = new Theme(pi.UiBuilder);
+        Speed    = new AnimationSpeed(interop, log);
         Sculptor = new Sculptor(this);
         Pictures = new ShapePictures(this);
         Window   = new SculptWindow(this);
@@ -168,6 +170,7 @@ public sealed class Plugin : IDalamudPlugin
             d.Dispose();
         _windows.RemoveAllWindows();
         Sculptor.Dispose();
+        Speed.Dispose();
         Theme.Dispose();
     }
 }

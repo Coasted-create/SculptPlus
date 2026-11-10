@@ -155,7 +155,8 @@ public sealed partial class SculptWindow : Window
             Wrapped(Theme.Good, _message);
         if (Config.TestLine)
             Wrapped(Theme.Faint, _test + (_lastAction.Length > 0 ? " · last: " + _lastAction : string.Empty)
-              + $" · sent to Customize+: {Sculptor.SentCount} ({(Sculptor.LastSendOk ? "ok" : "refused")})");
+              + $" · sent to Customize+: {Sculptor.SentCount} ({(Sculptor.LastSendOk ? "ok" : "refused")})"
+              + $" · animation speed now: {AnimationSpeed.Read(address):0.00} (held where the game sets it: {(_plugin.Speed.Listening ? "yes" : "no")})");
 
         ImGui.BeginChild("##sculptbody", new Vector2(0, 0), false);
         if (ImGui.CollapsingHeader(Loc.T("The part you hold"), ImGuiTreeNodeFlags.DefaultOpen))
