@@ -1,0 +1,11 @@
+Sculpt+
+Copyright 2026 Coasted-create and contributors
+
+This product includes the bone name table of Customize+
+(https://github.com/Aether-Tools/CustomizePlus), file
+CustomizePlus/Core/Data/BoneData.cs, licensed under the Apache License,
+Version 2.0. It is shipped as src/Sculpt/bones.csv, with one row per bone
+(later rows of the original table replace earlier ones of the same bone).
+
+Sculpt+ is not affiliated with Customize+, Dalamud or SQUARE ENIX.
+FINAL FANTASY XIV © SQUARE ENIX CO., LTD.
