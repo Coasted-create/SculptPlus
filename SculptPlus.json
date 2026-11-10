@@ -2,12 +2,19 @@
   "Author": "Coasted-create",
   "Name": "Sculpt+",
   "InternalName": "SculptPlus",
-  "AssemblyVersion": "0.1.0.0",
+  "AssemblyVersion": "0.1.1.0",
   "Punchline": "Shape your character by dragging dots on it. Works on top of Customize+.",
   "Description": "Dots appear on your character: drag one to move that part, scroll to resize it, right-drag to turn it. Sliders in plain words (fuller lips, wider hips), dice with an Evolve mode, presets, a soft brush, before/after, kept shapes with pictures that stay on through logins, sharing as text, and export as a Customize+ template. Everything shows live through a temporary Customize+ profile; your Customize+ data is not changed. Requires Customize+. Command: /sculpt",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/Coasted-create/SculptPlus",
   "DalamudApiLevel": 15,
-  "Tags": ["customize+", "body", "face", "sculpt", "bones", "randomizer"],
+  "Tags": [
+    "customize+",
+    "body",
+    "face",
+    "sculpt",
+    "bones",
+    "randomizer"
+  ],
   "LoadPriority": 0
 }

@@ -4,7 +4,7 @@ Shape your FINAL FANTASY XIV character by dragging dots on it. Sculpt+ is a Dala
 [Customize+](https://github.com/Aether-Tools/CustomizePlus): it shows your changes live through a temporary Customize+
 profile and never changes your Customize+ data.
 
-> **Status: first public build (0.1.0).** It has had little testing in game. Expect rough edges, and please report them.
+> **Status: early build (0.1.1).** It has had little testing in game. Expect rough edges, and please report them.
 
 ## What it does
 
