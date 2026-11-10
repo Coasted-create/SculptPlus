@@ -1,0 +1,107 @@
+name: Release
+
+# Publishes a version: push a tag like v0.1.2 whose commit already carries that version in SculptPlus.json and
+# SculptPlus.csproj. The build is zipped, a GitHub release is created with it, and repo.json on main is pointed at it
+# (only after the download exists, so installing never breaks in between).
+# "Run workflow" by hand builds and zips without publishing anything, to try the steps out.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Read the version
+        id: version
+        shell: pwsh
+        run: |
+          $manifest = (Get-Content SculptPlus.json -Raw | ConvertFrom-Json).AssemblyVersion
+          if (-not (Select-String -Path SculptPlus.csproj -SimpleMatch "<Version>$manifest</Version>" -Quiet)) {
+            throw "SculptPlus.csproj does not carry version $manifest."
+          }
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tag = $env:GITHUB_REF_NAME.TrimStart('v')
+            if ("$tag.0" -ne $manifest) { throw "Tag $env:GITHUB_REF_NAME does not match version $manifest in SculptPlus.json." }
+          }
+          "version=$manifest" >> $env:GITHUB_OUTPUT
+      - name: Download Dalamud
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile dalamud.zip
+          Expand-Archive dalamud.zip -DestinationPath "$env:AppData\XIVLauncher\addon\Hooks\dev"
+      - name: Test
+        run: dotnet run --project tests -c Release
+      - name: Build
+        run: dotnet build SculptPlus.csproj -c Release
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path bin/Release/SculptPlus.dll, bin/Release/SculptPlus.json -DestinationPath SculptPlus.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SculptPlus
+          path: SculptPlus.zip
+
+  publish:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: SculptPlus
+      - name: Release notes
+        run: |
+          # the section of CHANGELOG.md for this version, if there is one
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="## $version" '$0 == v {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md || true
+          if [ ! -s notes.md ]; then echo "Sculpt+ $version" > notes.md; fi
+          cat notes.md
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=""
+          case "$GITHUB_REF_NAME" in v0.*) flags="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" SculptPlus.zip --title "Sculpt+ ${GITHUB_REF_NAME#v}" --notes-file notes.md --verify-tag $flags
+      - name: Point repo.json at the release
+        run: |
+          python3 - <<'PY'
+          import json, os, time
+          tag = os.environ["GITHUB_REF_NAME"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          manifest = json.load(open("SculptPlus.json", encoding="utf-8"))
+          if manifest["AssemblyVersion"] != tag.lstrip("v") + ".0":
+              raise SystemExit(f"main carries {manifest['AssemblyVersion']}, not {tag}: is the tagged commit on main?")
+          url = f"https://github.com/{repo}/releases/download/{tag}/SculptPlus.zip"
+          entries = json.load(open("repo.json", encoding="utf-8"))
+          entry = entries[0]
+          entry.update(manifest)
+          entry.update({
+              "TestingAssemblyVersion": manifest["AssemblyVersion"],
+              "LastUpdate": int(time.time()),
+              "DownloadLinkInstall": url, "DownloadLinkTesting": url, "DownloadLinkUpdate": url,
+          })
+          with open("repo.json", "w", encoding="utf-8") as f:
+              json.dump(entries, f, indent=2, ensure_ascii=False)
+              f.write("\n")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add repo.json
+          git diff --cached --quiet || git commit -m "repo.json: point at $GITHUB_REF_NAME"
+          git push origin main

@@ -93,6 +93,9 @@ dotnet build SculptPlus.csproj -c Release
 dotnet run --project tests -c Release
 ```
 
+To publish a version: set it in `SculptPlus.json` and `SculptPlus.csproj`, add its section to `CHANGELOG.md`, push, then
+push a tag such as `v0.1.2`. The Release workflow builds the zip, creates the GitHub release and points `repo.json` at it.
+
 The tests cover the arithmetic that needs nothing from the game (rotations, sizes, mirroring, the shape text).
 Translations live in `Lang/` (English is the text in the code; `de.json` is German).
 
