@@ -295,8 +295,10 @@ public sealed partial class SculptWindow
         var radius = 5f * s * Math.Clamp(Config.DotSize, 0.5f, 2.5f);
 
         // the far half of the face is left out (you would see those dots through the head)
-        var centre      = Config.HideFarSide ? HeadCentre(bones) : null;
-        var centreScale = centre is { } c ? PixelsPerMetre(c) : 0f;
+        // (told by direction, not by depth: a part counts as "far" when, seen from the middle of the head, it points
+        // clearly away from you. Parts that lie deep in the head, like the eyes, would otherwise come and go as you turn.)
+        var centre = Config.HideFarSide ? HeadCentre(bones) : null;
+        var away   = centre is { } c ? Camera(c)?.Away : null;
 
         // which dots, and where on screen; the held and the changed ones first so they are never hidden by a neighbour
         var shown = new List<(LiveBone Bone, Vector2 At)>();
@@ -309,26 +311,29 @@ public sealed partial class SculptWindow
             if (!gui.WorldToScreen(bone.World, out var at))
                 continue;
             var held = bone.Name == _dragging || bone.Name == _selected;
-            if (!held && centreScale > 0 && IsFace(bone.Name) && PixelsPerMetre(bone.World) < centreScale * 0.9985f)
-                continue;
-            var gap = (radius * 2.4f) * (radius * 2.4f);
+            if (!held && centre is { } mid && away is { } dir && IsFace(bone.Name))
+            {
+                var out_ = bone.World - mid;
+                if (out_.LengthSquared() > 1e-8f && Vector3.Dot(Vector3.Normalize(out_), dir) > 0.35f)
+                    continue;
+            }
+
+            // A dot that would lie on top of another one is put next to it, so no part goes missing as you turn the
+            // camera; only when there is no room around it at all is it left out until you zoom in.
+            var gap = (radius * 1.7f) * (radius * 1.7f);
             if (!held && shown.Any(o => Vector2.DistanceSquared(o.At, at) < gap))
             {
-                // Crowded dots come apart when you zoom in, so one of them is enough for now. Parts that sit in the very
-                // same spot never do (the iris lies in the eye): such a dot is put next to the other one instead.
-                var same = radius * 0.9f * (radius * 0.9f);
-                if (!shown.Any(o => Vector2.DistanceSquared(o.At, at) < same))
-                    continue;
                 var placed = false;
-                foreach (var step in Beside)
-                {
-                    var spot = at + step * radius * 2.5f;
-                    if (shown.Any(o => Vector2.DistanceSquared(o.At, spot) < gap))
-                        continue;
-                    at     = spot;
-                    placed = true;
-                    break;
-                }
+                for (var ring = 1; ring <= 2 && !placed; ++ring)
+                    foreach (var step in Beside)
+                    {
+                        var spot = at + step * radius * 1.8f * ring;
+                        if (shown.Any(o => Vector2.DistanceSquared(o.At, spot) < gap))
+                            continue;
+                        at     = spot;
+                        placed = true;
+                        break;
+                    }
 
                 if (!placed)
                     continue;
