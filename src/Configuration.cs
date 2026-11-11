@@ -14,6 +14,9 @@ public sealed class Configuration : IPluginConfiguration
     /// <summary> The last sculpt (hand layer and sliders), to put back on. </summary>
     public string Last { get; set; } = string.Empty;
 
+    /// <summary> The last sculpt ended without being kept as a shape: the start page offers to go on with it. </summary>
+    public bool LastUnkept { get; set; }
+
     /// <summary> Shapes you kept, and the one you wear (kept on through logins). </summary>
     public List<SculptShape> Shapes { get; set; } = new();
     public string Worn { get; set; } = string.Empty;

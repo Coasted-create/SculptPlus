@@ -4,6 +4,8 @@ The section for a version becomes the text of its release.
 
 ## 0.1.3
 
+- Stop asks first when the sculpt is not kept as a shape yet
+- "Go on with my last sculpt" on the start page brings back what you stopped or closed, kept or not
 - Parts that sit in the same spot as another one (the iris in the eye) get their own dot next to it
 
 ## 0.1.2

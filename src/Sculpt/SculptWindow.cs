@@ -152,8 +152,33 @@ public sealed partial class SculptWindow : Window
         // ---- top row ----
         if (Theme.Button(Loc.T("Stop"), new Vector2(0, 0), Theme.Kind.Ghost, FontAwesomeIcon.Stop, true, "##stop"))
         {
-            IsOpen = false;
-            return;
+            // not kept yet: ask first
+            if (Sculptor.Unkept)
+                ImGui.OpenPopup("##stopask");
+            else
+            {
+                IsOpen = false;
+                return;
+            }
+        }
+
+        if (ImGui.BeginPopup("##stopask"))
+        {
+            ImGui.TextColored(Theme.Warn, Loc.T("This sculpt is not kept as a shape yet."));
+            ImGui.TextColored(Theme.Muted, Loc.T("Keep it under \"Keep it\" first, or stop anyway: \"Go on with my last sculpt\" on the start page brings it back."));
+            ImGui.Spacing();
+            if (Theme.Button(Loc.T("Go on sculpting"), new Vector2(0, 0), Theme.Kind.Primary, FontAwesomeIcon.HandSparkles, true, "##stopno"))
+                ImGui.CloseCurrentPopup();
+            ImGui.SameLine();
+            var stop = Theme.Button(Loc.T("Stop anyway"), new Vector2(0, 0), Theme.Kind.Ghost, FontAwesomeIcon.Stop, true, "##stopyes");
+            if (stop)
+                ImGui.CloseCurrentPopup();
+            ImGui.EndPopup();
+            if (stop)
+            {
+                IsOpen = false;
+                return;
+            }
         }
 
         Tip(Loc.T("Ends sculpting. A shape you wear stays on; otherwise the character looks like its own Customize+ profile again. Keep the shape first if you want it."));
@@ -296,6 +321,7 @@ public sealed partial class SculptWindow : Window
                 Sculptor.Start();
             }
 
+            DrawContinue(true);
             return;
         }
 
@@ -309,6 +335,7 @@ public sealed partial class SculptWindow : Window
             Sculptor.Start();
         }
 
+        DrawContinue(false);
         if (Sculptor.Note.Length > 0)
             Wrapped(Theme.Warn, Sculptor.Note);
         if (_message.Length > 0)
@@ -319,6 +346,24 @@ public sealed partial class SculptWindow : Window
         if (ImGui.CollapsingHeader(Loc.T("Keys and options")))
             DrawOptions(s);
         ImGui.EndChild();
+    }
+
+    /// <summary> On the start page: the sculpt you stopped (or closed the window on) is not lost. </summary>
+    private void DrawContinue(bool small)
+    {
+        if (Config.Last.Length == 0)
+            return;
+        ImGui.SameLine();
+        if (Theme.Button(Loc.T("Go on with my last sculpt"), new Vector2(0, 0), Config.LastUnkept ? Theme.Kind.Primary : Theme.Kind.Ghost, FontAwesomeIcon.History, true, "##continue"))
+        {
+            _message = string.Empty;
+            if (Sculptor.ContinueLast())
+                _plugin.SaveConfig();
+        }
+
+        Tip(Loc.T("Starts sculpting with everything as it was when you stopped last time."));
+        if (Config.LastUnkept && !small)
+            Wrapped(Theme.Warn, Loc.T("Your last sculpt was not kept as a shape. It is still here: go on with it, then keep it."));
     }
 
     /// <summary> Ctrl+Z, Ctrl+Y while sculpting (not while you type into a field). </summary>

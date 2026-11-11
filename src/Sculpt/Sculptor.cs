@@ -134,7 +134,13 @@ public sealed class Sculptor : IDisposable
             return;
         if (HasChanges)
             AddHistory();
-        Config.Last = Snapshot();
+        // (a sculpt without any change does not replace the last real one)
+        if (HasChanges)
+        {
+            Config.LastUnkept = Unkept;
+            Config.Last       = Snapshot();
+        }
+
         EvolveEnd(false);
         Active = false;
         UpdateFreeze();
@@ -1147,8 +1153,25 @@ public sealed class Sculptor : IDisposable
         shape.Sliders  = new Dictionary<string, float>(_sliders);
         shape.Output   = Compose().ToString(Newtonsoft.Json.Formatting.None);
         shape.SavedUtc = DateTime.UtcNow;
+        _kept = Snapshot();
         _plugin.SaveConfig();
         return shape;
+    }
+
+    private string _kept = string.Empty;
+
+    /// <summary> True while the sculpt has changes that are in no kept shape (asked when you stop, not every frame). </summary>
+    public bool Unkept
+        => Active && HasChanges && Snapshot() != _kept;
+
+    /// <summary> Starts sculpting and puts the last sculpt back (the one you stopped without keeping). </summary>
+    public bool ContinueLast()
+    {
+        if (!Start())
+            return false;
+        LoadLast();
+        Config.LastUnkept = false;
+        return true;
     }
 
     /// <summary> While sculpting: continue from a kept shape. </summary>
@@ -1160,6 +1183,7 @@ public sealed class Sculptor : IDisposable
             _sliders[k] = v;
         _blendFrom = _blendTo = null;
         _dirty = true;
+        _kept  = Snapshot();
     }
 
     /// <summary> Puts a kept shape on you and keeps it on (through area changes and logins) until you take it off. </summary>
