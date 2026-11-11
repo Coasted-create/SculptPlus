@@ -424,6 +424,25 @@ public sealed partial class SculptWindow : Window
             ImGui.TextColored(Theme.Warn, Config.Natural ? Loc.T("at the edge of its natural range") : Loc.T("past its natural range"));
         }
 
+        // its dot in the way? hide just this one (Alt+H does the same)
+        var dotHidden = Config.HiddenDots.Contains(name);
+        var io        = ImGui.GetIO();
+        var hideKey   = io.KeyAlt && !io.KeyCtrl && !io.WantTextInput && ImGui.IsKeyPressed(ImGuiKey.H, false);
+        if (ImGui.SmallButton((dotHidden ? Loc.T("Show its dot again") : Loc.T("Hide its dot")) + "##hidedot") || hideKey)
+        {
+            SetDotHidden(name, !dotHidden);
+            if (!dotHidden)
+            {
+                // let go of it, or it would stay on screen as the part you hold
+                _selected = null;
+                return;
+            }
+        }
+
+        Tip(dotHidden
+            ? Loc.T("The dot of this part is hidden; it only shows now because you hold it.")
+            : Loc.T("Takes just this dot off the character (with \"Both sides together\", its twin too). Alt+H does the same. The part keeps its shape; find it by name to get it back."));
+
         var (move, turn, size) = Sculptor.Get(name);
         var changed = false;
         ImGui.SetNextItemWidth(-110 * s);
@@ -1061,7 +1080,7 @@ public sealed partial class SculptWindow : Window
     {
         Wrapped(Theme.Muted, Loc.T("On a dot: drag moves · Shift+drag nearer/further · right-drag turns · wheel sizes · right-click puts back."));
         Wrapped(Theme.Muted, Loc.T("On the part you hold: drag an arrow to move in that direction only (red: left and right, green: up and down, blue: front and back) · wheel on an arrow sizes in that direction · drag round a ring to turn around its direction."));
-        Wrapped(Theme.Muted, Loc.T("Anywhere: Ctrl+Z undo · Ctrl+Y redo · hold Alt hides the dots · hold Ctrl+Alt shows the character without the sculpt · hold Alt+B shows the A/B shape · Alt+F freezes or lets you move."));
+        Wrapped(Theme.Muted, Loc.T("Anywhere: Ctrl+Z undo · Ctrl+Y redo · hold Alt hides the dots · hold Ctrl+Alt shows the character without the sculpt · hold Alt+B shows the A/B shape · Alt+F freezes or lets you move · Alt+H hides the dot of the part you hold."));
 
         var arrows = Config.Arrows;
         if (ImGui.Checkbox(Loc.T("Arrows and rings on the part you hold"), ref arrows))

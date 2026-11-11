@@ -2,6 +2,10 @@
 
 The section for a version becomes the text of its release.
 
+## 0.1.5
+
+- Hide the dot of a single part ("Hide its dot" under the part you hold, or Alt+H); "Show them again" brings them back
+
 ## 0.1.4
 
 - Dots no longer come and go as you turn the camera: the far side of the face is told by direction, and a dot that would lie on another one is put next to it

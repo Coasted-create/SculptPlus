@@ -82,7 +82,23 @@ public sealed partial class SculptWindow
     private static readonly Vector2[] Beside = { new(0, 1), new(0, -1), new(1, 0), new(-1, 0), new(1, 1), new(-1, 1), new(1, -1), new(-1, -1) };
 
     private bool Shown(string bone)
-        => ShownGroups.Contains(GroupOf(bone));
+        => ShownGroups.Contains(GroupOf(bone)) && !Config.HiddenDots.Contains(bone);
+
+    /// <summary> Hides or shows the dot of one part (and of its twin on the other side while both sides go together). </summary>
+    private void SetDotHidden(string bone, bool hidden)
+    {
+        foreach (var name in new[] { bone, Sculptor.Symmetry ? SculptBones.MirrorOf(bone) : null })
+        {
+            if (name is null)
+                continue;
+            if (hidden)
+                Config.HiddenDots.Add(name);
+            else
+                Config.HiddenDots.Remove(name);
+        }
+
+        _plugin.SaveConfig();
+    }
 
     private static bool IsFace(string bone)
         => Array.IndexOf(FaceGroups, GroupOf(bone)) >= 0;
@@ -136,6 +152,21 @@ public sealed partial class SculptWindow
             ImGui.PopStyleColor(2);
             if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
                 Only(new[] { group });
+        }
+
+        // single dots you hid
+        if (Config.HiddenDots.Count > 0)
+        {
+            ImGui.TextColored(Theme.Faint, Loc.F("{0} single dot(s) hidden", Config.HiddenDots.Count));
+            Tip(string.Join("\n", Config.HiddenDots.Select(Label).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).Take(40)));
+            ImGui.SameLine();
+            if (ImGui.SmallButton(Loc.T("Show them again") + "##unhidedots"))
+            {
+                Config.HiddenDots.Clear();
+                _plugin.SaveConfig();
+            }
+
+            Tip(Loc.T("To bring back just one: find it by name under \"The part you hold\" and click \"Show its dot again\"."));
         }
 
         void Only(IEnumerable<string> groups)

@@ -30,6 +30,9 @@ public sealed class Configuration : IPluginConfiguration
     /// <summary> The Freeze button: you stand completely still while sculpting (Speed is the slow motion when it is off). </summary>
     public bool Frozen { get; set; } = true;
 
+    /// <summary> Single parts whose dot you hid (they still show while you hold them, e.g. after finding them by name). </summary>
+    public HashSet<string> HiddenDots { get; set; } = new();
+
     /// <summary> The parts whose dots show while sculpting. </summary>
     [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public HashSet<string> Dots { get; set; } = new() { "lips", "eyes", "brows", "nose", "cheeks", "jaw", "face", "ears", "chest", "torso", "arms", "legs", "feet", "tail" };
