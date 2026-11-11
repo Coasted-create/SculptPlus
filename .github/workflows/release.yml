@@ -77,7 +77,12 @@ jobs:
         run: |
           flags=""
           case "$GITHUB_REF_NAME" in v0.*) flags="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" SculptPlus.zip --title "Sculpt+ ${GITHUB_REF_NAME#v}" --notes-file notes.md --verify-tag $flags
+          # a release made by hand on GitHub (which also makes the tag) is kept: only the freshly built zip goes onto it
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" SculptPlus.zip --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" SculptPlus.zip --title "Sculpt+ ${GITHUB_REF_NAME#v}" --notes-file notes.md --verify-tag $flags
+          fi
       - name: Point repo.json at the release
         run: |
           python3 - <<'PY'
