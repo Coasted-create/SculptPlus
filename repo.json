@@ -3,7 +3,7 @@
     "Author": "Coasted-create",
     "Name": "Sculpt+",
     "InternalName": "SculptPlus",
-    "AssemblyVersion": "0.1.4.0",
+    "AssemblyVersion": "0.1.5.0",
     "Punchline": "Shape your character by dragging dots on it. Works on top of Customize+.",
     "Description": "Dots appear on your character: drag one to move that part, scroll to resize it, right-drag to turn it. Sliders in plain words (fuller lips, wider hips), dice with an Evolve mode, presets, a soft brush, before/after, kept shapes with pictures that stay on through logins, sharing as text, and export as a Customize+ template. Everything shows live through a temporary Customize+ profile; your Customize+ data is not changed. Requires Customize+. Command: /sculpt",
     "ApplicableVersion": "any",
@@ -21,10 +21,10 @@
     "IsHide": false,
     "IsTestingExclusive": false,
     "DownloadCount": 0,
-    "LastUpdate": 1794436194,
-    "DownloadLinkInstall": "https://github.com/Coasted-create/SculptPlus/releases/download/v0.1.4/SculptPlus.zip",
-    "DownloadLinkTesting": "https://github.com/Coasted-create/SculptPlus/releases/download/v0.1.4/SculptPlus.zip",
-    "DownloadLinkUpdate": "https://github.com/Coasted-create/SculptPlus/releases/download/v0.1.4/SculptPlus.zip",
-    "TestingAssemblyVersion": "0.1.4.0"
+    "LastUpdate": 1794436728,
+    "DownloadLinkInstall": "https://github.com/Coasted-create/SculptPlus/releases/download/v0.1.5/SculptPlus.zip",
+    "DownloadLinkTesting": "https://github.com/Coasted-create/SculptPlus/releases/download/v0.1.5/SculptPlus.zip",
+    "DownloadLinkUpdate": "https://github.com/Coasted-create/SculptPlus/releases/download/v0.1.5/SculptPlus.zip",
+    "TestingAssemblyVersion": "0.1.5.0"
   }
 ]
