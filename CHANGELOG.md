@@ -2,6 +2,10 @@
 
 The section for a version becomes the text of its release.
 
+## 0.1.3
+
+- Parts that sit in the same spot as another one (the iris in the eye) get their own dot next to it
+
 ## 0.1.2
 
 - A Freeze button in the top row (also Alt+F, also in the small window)

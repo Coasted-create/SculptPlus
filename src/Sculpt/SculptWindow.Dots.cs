@@ -78,6 +78,9 @@ public sealed partial class SculptWindow
 
     private HashSet<string> ShownGroups => Config.Dots;
 
+    /// <summary> Where a dot may go when another part's dot is in its exact place: below, above, then to the sides. </summary>
+    private static readonly Vector2[] Beside = { new(0, 1), new(0, -1), new(1, 0), new(-1, 0), new(1, 1), new(-1, 1), new(1, -1), new(-1, -1) };
+
     private bool Shown(string bone)
         => ShownGroups.Contains(GroupOf(bone));
 
@@ -310,7 +313,27 @@ public sealed partial class SculptWindow
                 continue;
             var gap = (radius * 2.4f) * (radius * 2.4f);
             if (!held && shown.Any(o => Vector2.DistanceSquared(o.At, at) < gap))
-                continue;
+            {
+                // Crowded dots come apart when you zoom in, so one of them is enough for now. Parts that sit in the very
+                // same spot never do (the iris lies in the eye): such a dot is put next to the other one instead.
+                var same = radius * 0.9f * (radius * 0.9f);
+                if (!shown.Any(o => Vector2.DistanceSquared(o.At, at) < same))
+                    continue;
+                var placed = false;
+                foreach (var step in Beside)
+                {
+                    var spot = at + step * radius * 2.5f;
+                    if (shown.Any(o => Vector2.DistanceSquared(o.At, spot) < gap))
+                        continue;
+                    at     = spot;
+                    placed = true;
+                    break;
+                }
+
+                if (!placed)
+                    continue;
+            }
+
             shown.Add((bone, at));
         }
 
