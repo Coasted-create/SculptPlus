@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>SculptPlus</AssemblyName>
     <RootNamespace>SculptPlus</RootNamespace>
-    <Version>0.1.3.0</Version>
+    <Version>0.1.4.0</Version>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
