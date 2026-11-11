@@ -38,14 +38,14 @@ public sealed unsafe class AnimationSpeed : IDisposable
         }
     }
 
-    /// <summary> Framework thread: holds this character at this speed from now on. </summary>
+    /// <summary> Framework thread: holds this character at this speed from now on (call it every frame while it should hold). </summary>
     public void Hold(nint character, float speed)
     {
         _character = character;
         _speed     = Math.Clamp(speed, 0f, 1f);
         if (_hook is { IsEnabled: false })
             _hook.Enable();
-        Write(character, _speed);
+        Apply(character, _speed);
     }
 
     /// <summary> The character being held (zero: none). </summary>
@@ -63,18 +63,51 @@ public sealed unsafe class AnimationSpeed : IDisposable
         _character = nint.Zero;
         if (_hook is { IsEnabled: true })
             _hook.Disable();
-        if (stillThere)
-            Write(character, 1f);
+        if (!stillThere)
+            return;
+        Apply(character, 1f);
+        try
+        {
+            // and the game works out its own speeds again (slowed by a spell, mounted, …)
+            ((Character*)character)->Timeline.CalculateAndApplyOverallSpeed();
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"Sculpt+: could not hand the animation speed back to the game: {ex.Message}");
+        }
     }
 
     /// <summary> The speed the character has right now (for the test line). </summary>
     public static float Read(nint character)
         => character == nint.Zero ? 1f : ((Character*)character)->Timeline.OverallSpeed;
 
-    private static void Write(nint character, float speed)
+    /// <summary> How many of the character's animation layers run at this speed right now (for the test line). </summary>
+    public static string ReadSlots(nint character)
     {
-        if (character != nint.Zero)
-            ((Character*)character)->Timeline.OverallSpeed = speed;
+        if (character == nint.Zero)
+            return "-";
+        var speeds = ((Character*)character)->Timeline.TimelineSequencer.TimelineSpeeds;
+        var parts  = new string[speeds.Length];
+        for (var i = 0; i < speeds.Length; ++i)
+            parts[i] = speeds[i].ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>
+    /// The overall number alone is not enough: the game hands it on to each animation layer (body, upper body, face,
+    /// lips, …) only inside its own function, so every layer is set here as well. A layer already at the speed is left alone.
+    /// </summary>
+    private static void Apply(nint character, float speed)
+    {
+        if (character == nint.Zero)
+            return;
+        var timeline = &((Character*)character)->Timeline;
+        timeline->OverallSpeed = speed;
+        var sequencer = &timeline->TimelineSequencer;
+        var count     = sequencer->TimelineSpeeds.Length;
+        for (uint slot = 0; slot < count; ++slot)
+            if (MathF.Abs(sequencer->GetSlotSpeed(slot) - speed) > 0.0005f)
+                sequencer->SetSlotSpeed(slot, speed);
     }
 
     private bool Detour(TimelineContainer* container)
@@ -82,7 +115,7 @@ public sealed unsafe class AnimationSpeed : IDisposable
         var result = _hook!.Original(container);
         var held   = _character;
         if (held != nint.Zero && container != null && (nint)container->OwnerObject == held)
-            container->OverallSpeed = _speed;
+            Apply(held, _speed);
         return result;
     }
 

@@ -195,17 +195,32 @@ public sealed class Sculptor : IDisposable
     public void LetMove(double seconds)
         => _moveUntil = DateTime.UtcNow.AddSeconds(seconds);
 
-    /// <summary> How fast the character moves while you sculpt: 0 frozen, 1 normal (only on your screen). </summary>
+    /// <summary> The Freeze button: completely still while you sculpt (only on your screen). </summary>
+    public bool Frozen
+    {
+        get => _plugin.Config.Frozen;
+        set
+        {
+            _plugin.Config.Frozen = value;
+            _moveUntil            = DateTime.MinValue;
+            _plugin.SaveConfig();
+        }
+    }
+
+    /// <summary> How fast the character moves when not frozen: 0.05 slow motion … 1 normal (0, from older versions, counts as normal). </summary>
     public float Speed
     {
-        get => Math.Clamp(_plugin.Config.Speed, 0f, 1f);
-        set => _plugin.Config.Speed = Math.Clamp(value, 0f, 1f);
+        get => _plugin.Config.Speed <= 0f ? 1f : Math.Clamp(_plugin.Config.Speed, 0.05f, 1f);
+        set => _plugin.Config.Speed = Math.Clamp(value, 0.05f, 1f);
     }
+
+    /// <summary> The speed in force: 0 while frozen. </summary>
+    private float HeldSpeed => Frozen ? 0f : Speed;
 
     /// <summary> Framework thread: holds you at the chosen speed while sculpting, and lets go otherwise. </summary>
     private void UpdateFreeze()
     {
-        var want    = Active && Speed < 0.995f && DateTime.UtcNow >= _moveUntil;
+        var want    = Active && HeldSpeed < 0.995f && DateTime.UtcNow >= _moveUntil;
         var address = want ? Address : nint.Zero;
         if (address == nint.Zero)
         {
@@ -221,7 +236,7 @@ public sealed class Sculptor : IDisposable
 
         // (every frame: the speed may have changed, and where the game's own setting could not be listened to, writing
         // it again and again is the only way to hold it at all)
-        _plugin.Speed.Hold(address, Speed);
+        _plugin.Speed.Hold(address, HeldSpeed);
         _frozen = true;
     }
 

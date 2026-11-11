@@ -2,6 +2,12 @@
 
 The section for a version becomes the text of its release.
 
+## 0.1.2
+
+- A Freeze button in the top row (also Alt+F, also in the small window)
+- Freezing now stops every animation layer (body, face, lips), not only the overall speed
+- The Movement slider is the slow motion for when you are not frozen
+
 ## 0.1.1
 
 - Arrows and rings on the part you hold: move, size or turn it along one direction only

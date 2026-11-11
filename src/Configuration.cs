@@ -24,6 +24,9 @@ public sealed class Configuration : IPluginConfiguration
     /// <summary> How fast the character moves while you sculpt: 0 frozen, 1 normal. </summary>
     public float Speed { get; set; }
 
+    /// <summary> The Freeze button: you stand completely still while sculpting (Speed is the slow motion when it is off). </summary>
+    public bool Frozen { get; set; } = true;
+
     /// <summary> The parts whose dots show while sculpting. </summary>
     [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public HashSet<string> Dots { get; set; } = new() { "lips", "eyes", "brows", "nose", "cheeks", "jaw", "face", "ears", "chest", "torso", "arms", "legs", "feet", "tail" };

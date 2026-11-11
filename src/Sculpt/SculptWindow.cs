@@ -193,6 +193,17 @@ public sealed partial class SculptWindow : Window
             ? other
             : null;
 
+        // freeze: on or off with one click, also in the small window
+        ImGui.SameLine();
+        var frozen = Sculptor.Frozen;
+        if (Theme.Button(frozen ? Loc.T("Frozen") : Loc.T("Freeze"), new Vector2(0, 0), frozen ? Theme.Kind.Primary : Theme.Kind.Ghost, FontAwesomeIcon.Snowflake, true, "##freeze"))
+            Sculptor.Frozen = !frozen;
+        Tip(frozen
+            ? Loc.T("You stand completely still, so the dots stay where they are. Click (or Alt+F) to move again. Only on your screen.")
+            : Loc.T("Stops every movement of your character (body, face, lips) while you sculpt, so the dots stay where they are. Also Alt+F. Only on your screen."));
+        if (io.KeyAlt && !io.KeyCtrl && !io.WantTextInput && ImGui.IsKeyPressed(ImGuiKey.F, false))
+            Sculptor.Frozen = !frozen;
+
         if (_small)
         {
             // only the top row; everything on the character goes on as usual
@@ -205,11 +216,13 @@ public sealed partial class SculptWindow : Window
 
         var speed = Sculptor.Speed * 100f;
         ImGui.SetNextItemWidth(120 * s);
-        if (ImGui.SliderFloat(Loc.T("Movement") + "##speed", ref speed, 0f, 100f, speed < 0.5f ? Loc.T("frozen") : speed > 99.5f ? Loc.T("normal") : "%.0f %%"))
+        ImGui.BeginDisabled(Sculptor.Frozen);
+        if (ImGui.SliderFloat(Loc.T("Movement") + "##speed", ref speed, 5f, 100f, Sculptor.Frozen ? Loc.T("frozen") : speed > 99.5f ? Loc.T("normal") : "%.0f %%"))
             Sculptor.Speed = speed / 100f;
         if (ImGui.IsItemDeactivatedAfterEdit())
             _plugin.SaveConfig();
-        Tip(Loc.T("How fast the character moves while you sculpt. Frozen keeps the dots where they are; a quarter speed lets you watch an expression or the idle pose slowly. Only on your screen."));
+        ImGui.EndDisabled();
+        Tip(Loc.T("How fast the character moves when it is not frozen: a quarter speed lets you watch an expression or the idle pose slowly. Only on your screen."));
         ImGui.SameLine();
         var symmetry = Sculptor.Symmetry;
         if (ImGui.Checkbox(Loc.T("Both sides together"), ref symmetry))
@@ -242,7 +255,7 @@ public sealed partial class SculptWindow : Window
         if (Config.TestLine)
             Wrapped(Theme.Faint, _test + (_lastAction.Length > 0 ? " · last: " + _lastAction : string.Empty)
               + $" · sent to Customize+: {Sculptor.SentCount} ({(Sculptor.LastSendOk ? "ok" : "refused")})"
-              + $" · animation speed now: {AnimationSpeed.Read(address):0.00} (held where the game sets it: {(_plugin.Speed.Listening ? "yes" : "no")})");
+              + $" · animation speed now: {AnimationSpeed.Read(address):0.00}, layers: {AnimationSpeed.ReadSlots(address)} (held where the game sets it: {(_plugin.Speed.Listening ? "yes" : "no")})");
 
         ImGui.BeginChild("##sculptbody", new Vector2(0, 0), false);
         if (ImGui.CollapsingHeader(Loc.T("The part you hold"), ImGuiTreeNodeFlags.DefaultOpen))
@@ -1003,7 +1016,7 @@ public sealed partial class SculptWindow : Window
     {
         Wrapped(Theme.Muted, Loc.T("On a dot: drag moves · Shift+drag nearer/further · right-drag turns · wheel sizes · right-click puts back."));
         Wrapped(Theme.Muted, Loc.T("On the part you hold: drag an arrow to move in that direction only (red: left and right, green: up and down, blue: front and back) · wheel on an arrow sizes in that direction · drag round a ring to turn around its direction."));
-        Wrapped(Theme.Muted, Loc.T("Anywhere: Ctrl+Z undo · Ctrl+Y redo · hold Alt hides the dots · hold Ctrl+Alt shows the character without the sculpt · hold Alt+B shows the A/B shape."));
+        Wrapped(Theme.Muted, Loc.T("Anywhere: Ctrl+Z undo · Ctrl+Y redo · hold Alt hides the dots · hold Ctrl+Alt shows the character without the sculpt · hold Alt+B shows the A/B shape · Alt+F freezes or lets you move."));
 
         var arrows = Config.Arrows;
         if (ImGui.Checkbox(Loc.T("Arrows and rings on the part you hold"), ref arrows))
