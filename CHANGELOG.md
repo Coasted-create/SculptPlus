@@ -2,6 +2,11 @@
 
 The section for a version becomes the text of its release.
 
+## 0.2.2
+
+- The other side now mirrors through the middle of the face or body itself, however the head is held (with a tilted head the two eyes came out different)
+- Sliders, the dice and the arrows on the part you hold go by the body's own side, up and front, not by the pose of the moment
+
 ## 0.2.1
 
 - A part's dot, glow and arrows sit on the skin the part moves instead of on the point it turns around: the eye parts no longer pile up in the middle of the eye

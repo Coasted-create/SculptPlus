@@ -479,7 +479,7 @@ public sealed partial class SculptWindow
             }
 
             if (Config.TestLine)
-                _test = $"mouse {mouse.X:0},{mouse.Y:0} · nearest dot {MathF.Sqrt(nearest):0} px · over a window: {(overWindow ? "yes" : "no")} · wants mouse: {(io.WantCaptureMouse ? "yes" : "no")} · grab: {(_grabHovered ? "yes" : "no")} · dots: {shown.Count}";
+                _test = $"mouse {mouse.X:0},{mouse.Y:0} · nearest dot {MathF.Sqrt(nearest):0} px · over a window: {(overWindow ? "yes" : "no")} · wants mouse: {(io.WantCaptureMouse ? "yes" : "no")} · grab: {(_grabHovered ? "yes" : "no")} · dots: {shown.Count} · directions by the rest pose: {(Sculptor.ByRestPose ? "yes" : "no")}";
         }
 
         var brush = Config.Brush;

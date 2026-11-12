@@ -5,7 +5,7 @@ Sculpt+ is a Dalamud plugin that works on top of
 [Customize+](https://github.com/Aether-Tools/CustomizePlus): it shows your changes live through a temporary Customize+
 profile and never changes your Customize+ data.
 
-> **Status: early build (0.2.1).** It has had little testing in game. Expect rough edges, and please report them.
+> **Status: early build (0.2.2).** It has had little testing in game. Expect rough edges, and please report them.
 
 ## What it does
 
