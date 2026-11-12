@@ -692,7 +692,10 @@ public sealed partial class SculptWindow
         if (brush <= 0 || IsFace(grabbed.Name) != IsFace(other.Name) || SculptBones.Info(other.Name) is not { Standard: true })
             return 0;
         var d = Vector3.Distance(grabbed.Model, other.Model);
-        if (d >= brush)
+
+        // Parts in the very same spot are not neighbours: they are different parts that turn around one point (every
+        // eyelid part and the iris sit in the middle of the eye). Taking them along would move the whole eye as one.
+        if (d >= brush || d < 0.003f)
             return 0;
         var f = 1f - d / brush;
         return f * f;
