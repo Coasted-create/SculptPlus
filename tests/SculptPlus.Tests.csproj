@@ -8,5 +8,9 @@
   <ItemGroup>
     <Compile Include="../src/Sculpt/SculptMath.cs" Link="Linked/SculptMath.cs" />
     <Compile Include="../src/Loc.cs" Link="Linked/Loc.cs" />
+    <Compile Include="../src/Sculpt/LiveBone.cs" Link="Linked/LiveBone.cs" />
+    <Compile Include="../src/Sculpt/BenchModel.cs" Link="Linked/BenchModel.cs" />
+    <Compile Include="../src/Model/MdlFile.cs" Link="Linked/MdlFile.cs" />
+    <Compile Include="../src/Model/ModelDecode.cs" Link="Linked/ModelDecode.cs" />
   </ItemGroup>
 </Project>

@@ -27,6 +27,8 @@ public sealed class Plugin : IDalamudPlugin
     public ITextureProvider Textures { get; }
     public ITextureReadbackProvider Readback { get; }
     public IPluginLog Log { get; }
+    public IDataManager Data { get; }
+    public IFramework Framework => _framework;
     public Configuration Config { get; }
     public Theme Theme { get; }
     public AnimationSpeed Speed { get; }
@@ -36,7 +38,7 @@ public sealed class Plugin : IDalamudPlugin
     public SculptWindow Window { get; }
 
     public Plugin(IDalamudPluginInterface pi, ICommandManager commands, IFramework framework, IObjectTable objects, IGameGui gameGui,
-        ITextureProvider textures, ITextureReadbackProvider readback, IPluginLog log, ICondition condition, IGameInteropProvider interop)
+        ITextureProvider textures, ITextureReadbackProvider readback, IPluginLog log, ICondition condition, IGameInteropProvider interop, IDataManager data)
     {
         PluginInterface = pi;
         _commands       = commands;
@@ -47,6 +49,7 @@ public sealed class Plugin : IDalamudPlugin
         Textures        = textures;
         Readback        = readback;
         Log             = log;
+        Data            = data;
 
         Config = pi.GetPluginConfig() as Configuration ?? new Configuration();
         ApplyLanguage();

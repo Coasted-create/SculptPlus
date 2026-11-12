@@ -1,16 +1,25 @@
 # Sculpt+
 
-Shape your FINAL FANTASY XIV character by dragging dots on it. Sculpt+ is a Dalamud plugin that works on top of
+Shape your FINAL FANTASY XIV character by taking hold of it: on the character itself, or on a clay model of your head.
+Sculpt+ is a Dalamud plugin that works on top of
 [Customize+](https://github.com/Aether-Tools/CustomizePlus): it shows your changes live through a temporary Customize+
 profile and never changes your Customize+ data.
 
-> **Status: early build (0.1.1).** It has had little testing in game. Expect rough edges, and please report them.
+> **Status: early build (0.2.0).** It has had little testing in game. Expect rough edges, and please report them.
 
 ## What it does
 
-- **Dots on the character.** Drag a dot to move that part, scroll on it to resize, right-drag to turn, Shift+drag for
-  nearer/further, right-click to put the part back. Left and right sides move together unless you switch that off.
-  The part you hold gets arrows and rings for moving, sizing and turning along one direction only.
+- **Take hold of a part.** The part under the mouse lights up with its name (or switch to a dot on every part). Drag
+  to move it, scroll to resize, right-drag to turn, Shift+drag for nearer/further, right-click to put it back. Where
+  parts lie on top of each other, Ctrl + wheel goes through them. Left and right sides move together unless you switch
+  that off. The part you hold gets arrows and rings for moving, sizing and turning along one direction only.
+- **A map of the face and body.** Click an area to work on it; its own sliders appear (eye shape, lids, brows, nose,
+  lips, cheekbones, chin…).
+- **Focus camera.** Front, three-quarter and side views, a zoom far closer than the game allows, and the picked area in
+  the middle of the screen. You keep turning and zooming with the mouse as always.
+- **Workbench.** A window with your own head as a plain clay model: turn it freely, come as close as you like, and take
+  hold of the skin itself. The area a part moves lights up, and pulling the skin takes the neighbouring parts along.
+  Your character in the game changes along and stays the place to judge the result.
 - **Sliders in plain words.** Fuller lips, bigger eyes, wider jaw, wider hips, thicker thighs, taller, and more.
   One-click starting points (softer, sharper, doll-like, curvier, athletic…) set several sliders at once.
 - **Dice and Evolve.** Roll chosen parts at random with a strength you set. Evolve shows four variations, you take the
@@ -37,12 +46,14 @@ profile and never changes your Customize+ data.
 
 ## Use
 
-`/sculpt` opens the window, and **Sculpt me** puts the dots on your character. `/sculpt stop` ends sculpting.
+`/sculpt` opens the window, and **Sculpt me** starts. `/sculpt stop` ends sculpting.
 
-| On a dot | |
+| On a part (lit, or its dot) | |
 |---|---|
 | Drag | Move the part (in the plane you look at) |
+| Ctrl+drag | The same, ten times finer |
 | Shift+drag | Move it nearer or further |
+| Ctrl + wheel | The next part underneath |
 | Right-drag | Turn it |
 | Mouse wheel | Make it bigger or smaller |
 | Right-click | Put it back |
@@ -56,7 +67,9 @@ profile and never changes your Customize+ data.
 | Anywhere | |
 |---|---|
 | Ctrl+Z / Ctrl+Y | Undo / redo |
-| Hold Alt | Hide the dots |
+| Hold Alt | Hide the glow and dots (the mouse turns the camera over the face again) |
+| Alt + arrow keys | Move the part you hold a tiny step |
+| Alt+F | Freeze, or move again |
 | Hold Ctrl+Alt | Show the character without the sculpt |
 | Hold Alt+B | Show the kept shape chosen for A/B instead of the sculpt |
 

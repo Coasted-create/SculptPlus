@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>SculptPlus</AssemblyName>
     <RootNamespace>SculptPlus</RootNamespace>
-    <Version>0.1.5.0</Version>
+    <Version>0.2.0.0</Version>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -27,6 +27,7 @@
     <Reference Include="Dalamud.Bindings.ImGui"><HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGui.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="FFXIVClientStructs"><HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="InteropGenerator.Runtime"><HintPath>$(DalamudLibPath)InteropGenerator.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Lumina"><HintPath>$(DalamudLibPath)Lumina.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Newtonsoft.Json"><HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 

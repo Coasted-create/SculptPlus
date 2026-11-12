@@ -107,6 +107,7 @@ public sealed partial class SculptWindow : Window
         _dragging = null;
         _aimGroup = null;
         SetHatHidden(false);
+        CloseWorkbench();
         _plugin.Camera.End();
         Sculptor.Stop();
     }
@@ -143,6 +144,8 @@ public sealed partial class SculptWindow : Window
             _dragging = null;
             _aimGroup = null;
             SetHatHidden(false);
+            if (_benchOpen || _bench is { Ready: true })
+                CloseWorkbench();
             DrawWelcome(s);
             return;
         }
@@ -242,6 +245,7 @@ public sealed partial class SculptWindow : Window
             CameraTick(bones);
             if (!Sculptor.ShowOriginal && Sculptor.Compare is null && !_hideDots)
                 DrawHandles(bones, s);
+            DrawWorkbench(bones, s);
             return;
         }
 
@@ -320,6 +324,7 @@ public sealed partial class SculptWindow : Window
         CameraTick(bones);
         if (!Sculptor.ShowOriginal && Sculptor.Compare is null && !_hideDots)
             DrawHandles(bones, s);
+        DrawWorkbench(bones, s);
     }
 
     private void DrawWelcome(float s)

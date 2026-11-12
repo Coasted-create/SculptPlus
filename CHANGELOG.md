@@ -9,6 +9,7 @@ The section for a version becomes the text of its release.
 - Sliders for the area you picked: eye shape, lids, brows, nose, lips, cheekbones, chin and more
 - Focus camera: front, three-quarter and side views, zoom far closer than the game allows, the picked area in the middle; "Hide my hat"
 - Fine work: Ctrl+drag is ten times finer, tiny steps with arrows or Alt + arrow keys
+- Workbench: a window with your own head as a clay model. Turn it freely, zoom as close as you like, and take hold of the skin; the area a part moves lights up
 
 ## 0.1.5
 

@@ -36,6 +36,12 @@ public sealed class Configuration : IPluginConfiguration
     /// <summary> Picking an area on the map also sends the camera there. </summary>
     public bool FocusOnZone { get; set; } = true;
 
+    /// <summary> Workbench: pulling the skin takes the parts along that share the spot you grabbed. </summary>
+    public bool BenchPull { get; set; } = true;
+
+    /// <summary> Workbench: the hair is shown too. </summary>
+    public bool BenchHair { get; set; }
+
     /// <summary> The step of the "tiny steps" arrows, in millimetres. </summary>
     public float NudgeStep { get; set; } = 0.2f;
 

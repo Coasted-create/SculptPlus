@@ -144,6 +144,15 @@ public sealed partial class SculptWindow
         ImGui.SameLine(0, 4 * s);
         if (ImGui.SmallButton(Loc.T("None") + "##dotsnone"))
             ShowOnly(Array.Empty<string>());
+        if (Theme.Button(Loc.T("Workbench"), new Vector2(0, 0), _benchOpen ? Theme.Kind.Primary : Theme.Kind.Secondary, Dalamud.Interface.FontAwesomeIcon.Cube, true, "##bench"))
+        {
+            if (_benchOpen)
+                CloseWorkbench();
+            else
+                _benchOpen = true;
+        }
+
+        Tip(Loc.T("A window with your head as a plain clay model: turn it freely, come as close as you like, and take hold of the skin itself. Your character in the game changes along."));
         ImGui.EndGroup();
 
         var all = ImGui.TreeNodeEx(Loc.T("Every area as a button") + "###allareas", ImGuiTreeNodeFlags.SpanAvailWidth);
