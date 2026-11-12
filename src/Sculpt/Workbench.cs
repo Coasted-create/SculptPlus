@@ -33,6 +33,21 @@ public sealed class Workbench
     public bool Still => Fit > 0.05f;
 
     public string Info { get; private set; } = string.Empty;
+
+    private Dictionary<string, Vector3> _spots = new();
+
+    /// <summary>
+    /// Where on the character (in its model's space) the skin lies that this bone moves; false when that is not known
+    /// (the head is not loaded, the bone moves no skin of the face, or model and skeleton do not belong together).
+    /// </summary>
+    public bool SkinSpot(LiveBone bone, out Vector3 model)
+    {
+        model = default;
+        if (!Ready || Still || !_spots.TryGetValue(bone.Name, out var spot) || !_rest.TryGetValue(bone.Name, out var rest))
+            return false;
+        model = Bench.Carry(spot, rest, bone);
+        return !float.IsNaN(model.X);
+    }
     public Vector3 Centre { get; private set; }
     public float Radius { get; private set; } = 0.15f;
 
@@ -40,6 +55,7 @@ public sealed class Workbench
     {
         _loadId++;
         Meshes  = new List<BenchMesh>();
+        _spots  = new Dictionary<string, Vector3>();
         Ready   = false;
         Loading = false;
         Problem = string.Empty;
@@ -120,6 +136,12 @@ public sealed class Workbench
                 var fitPlain = Bench.FitOf(meshes, plain);
                 var rest     = fitHung <= fitPlain ? hung : plain;
 
+                // A spot on the skin for each bone. One that lies far from its bone is left out: that bone holds a
+                // wide area a little (the head, the neck) and has no one place.
+                var spots = Bench.SkinSpots(meshes)
+                    .Where(kv => rest.TryGetValue(kv.Key, out var at) && Vector3.Distance(kv.Value, at.Position) < 0.06f)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+
                 // the middle and size of the face, for the first view
                 var min = new Vector3(float.MaxValue);
                 var max = new Vector3(float.MinValue);
@@ -135,6 +157,7 @@ public sealed class Workbench
                     if (id != _loadId)
                         return;
                     _rest   = rest;
+                    _spots  = spots;
                     Meshes  = meshes;
                     Fit     = MathF.Min(fitHung, fitPlain);
                     Centre  = (min + max) / 2;

@@ -188,5 +188,11 @@ SculptPlus.Bench.Pose(backwards, benchRest, Standing(Quaternion.Identity, Vector
 benchView.Project(backwards, Vector3.Zero, Quaternion.Identity, new Vector2(100, 100), 50, null, null, _ => false, Vector3.One, Vector3.One);
 Check("workbench: a model whose normals point back shows its other side", benchView.TriCount == 0);
 
+// where the skin of a part is
+var skinSpots = SculptPlus.Bench.SkinSpots(meshList);
+Check("workbench: a part's spot lies on the skin it moves", skinSpots.TryGetValue("a", out var spotA) && spotA.X < 0 && skinSpots.TryGetValue("b", out var spotB) && spotB.X > 0 && !skinSpots.ContainsKey("j_kao"));
+var carried = SculptPlus.Bench.Carry(spotA, benchRest["a"], Standing(Quaternion.CreateFromYawPitchRoll(0.4f, 0.2f, 0), new Vector3(1, 1, 1))["a"]);
+Check("workbench: the spot goes along with its part", Near(carried, Vector3.Transform(spotA, Quaternion.CreateFromYawPitchRoll(0.4f, 0.2f, 0)) + new Vector3(1, 1, 1)));
+
 Console.WriteLine(failed == 0 ? "all passed" : $"{failed} FAILED");
 return failed == 0 ? 0 : 1;

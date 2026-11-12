@@ -37,7 +37,6 @@ public sealed partial class SculptWindow
         _benchDrag   = null;
         _benchPick   = null;
         _benchFitted = false;
-        _bench?.Clear();
     }
 
     private void DrawWorkbench(Dictionary<string, LiveBone> bones, float s)

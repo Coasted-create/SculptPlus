@@ -365,7 +365,8 @@ public sealed partial class SculptWindow
                      .Where(b => b.Name == _dragging || b.Name == _selected || Shown(b.Name))
                      .OrderByDescending(b => b.Name == _dragging || b.Name == _selected)
                      .ThenByDescending(b => Sculptor.IsEdited(b.Name))
-                     .ThenBy(b => b.Name.Length))
+                     .ThenBy(b => b.Name.Length)
+                     .Select(AtSkin))
         {
             if (!gui.WorldToScreen(bone.World, out var at))
                 continue;
@@ -404,7 +405,7 @@ public sealed partial class SculptWindow
         // arrows and rings on the part you hold (not while you drag its dot freely: they would be in the way)
         Gizmo? gizmo = null;
         if (Config.Arrows && _selected is not null && bones.TryGetValue(_selected, out var selected) && !(_dragging is not null && _dragKind == GrabKind.Dot))
-            gizmo = BuildGizmo(selected, s);
+            gizmo = BuildGizmo(AtSkin(selected), s);
 
         // what is under the mouse (not through another window)
         (GrabKind Kind, int Axis, LiveBone Bone, Vector2 At)? target = null;
@@ -686,16 +687,48 @@ public sealed partial class SculptWindow
     private Vector3 ToModel(Vector3 world)
         => Vector3.Transform(world, Quaternion.Inverse(_rootRotation)) / SafeScale(_rootScale);
 
+    /// <summary>
+    /// The part with its place moved onto the skin it moves (when the head's model is loaded and knows that part): the
+    /// dot, the glow and the arrows then sit where you see the change, not on the point the part turns around.
+    /// </summary>
+    private LiveBone AtSkin(LiveBone bone)
+        => _skin.TryGetValue(bone.Name, out var model)
+            ? bone with { World = bone.World + Vector3.Transform((model - bone.Model) * _rootScale, _rootRotation) }
+            : bone;
+
+    /// <summary> Per frame: where each part's skin is, in the model's space (empty until the head is loaded). </summary>
+    private readonly Dictionary<string, Vector3> _skin = new(StringComparer.Ordinal);
+
+    private void SkinTick(Dictionary<string, LiveBone> bones)
+    {
+        _skin.Clear();
+        if (!Config.SkinDots)
+            return;
+
+        // the head's model: loaded once per sculpt, in the background (the workbench shows the same one)
+        _bench ??= new Workbench(_plugin);
+        if (!_bench.Ready && !_bench.Loading && _bench.Problem.Length == 0)
+            _bench.Load(Sculptor.Address);
+        if (!_bench.Ready)
+            return;
+        foreach (var bone in bones.Values)
+            if (_bench.SkinSpot(bone, out var model))
+                _skin[bone.Name] = model;
+    }
+
     /// <summary> How much of a drag a neighbour takes: 1 at the grabbed part, falling to 0 at the brush's edge. </summary>
-    private static float BrushWeight(LiveBone grabbed, LiveBone other, float brush)
+    private float BrushWeight(LiveBone grabbed, LiveBone other, float brush)
     {
         if (brush <= 0 || IsFace(grabbed.Name) != IsFace(other.Name) || SculptBones.Info(other.Name) is not { Standard: true })
             return 0;
-        var d = Vector3.Distance(grabbed.Model, other.Model);
 
-        // Parts in the very same spot are not neighbours: they are different parts that turn around one point (every
+        // how far apart the two are: by the skin they move where that is known, else by the bones themselves
+        var known = _skin.TryGetValue(grabbed.Name, out var a) & _skin.TryGetValue(other.Name, out var b);
+        var d     = known ? Vector3.Distance(a, b) : Vector3.Distance(grabbed.Model, other.Model);
+
+        // Bones in the very same spot are not neighbours: they are different parts that turn around one point (every
         // eyelid part and the iris sit in the middle of the eye). Taking them along would move the whole eye as one.
-        if (d >= brush || d < 0.003f)
+        if (d >= brush || !known && d < 0.003f)
             return 0;
         var f = 1f - d / brush;
         return f * f;

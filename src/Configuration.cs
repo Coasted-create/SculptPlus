@@ -36,6 +36,9 @@ public sealed class Configuration : IPluginConfiguration
     /// <summary> Picking an area on the map also sends the camera there. </summary>
     public bool FocusOnZone { get; set; } = true;
 
+    /// <summary> A part's dot (and glow) sits on the skin the part moves, not on the point it turns around. </summary>
+    public bool SkinDots { get; set; } = true;
+
     /// <summary> Workbench: pulling the skin takes the parts along that share the spot you grabbed. </summary>
     public bool BenchPull { get; set; } = true;
 

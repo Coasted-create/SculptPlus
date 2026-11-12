@@ -71,6 +71,64 @@ public static class Bench
     }
 
     /// <summary>
+    /// For every bone, a spot on the skin it moves (as the model is stored): the middle of its points, strong holds
+    /// counting most, moved onto the nearest point it holds firmly so that it lies on the surface. A bone's own place
+    /// says little about what it moves (the eyelids all turn around the middle of the eye); this spot does.
+    /// </summary>
+    public static Dictionary<string, Vector3> SkinSpots(List<BenchMesh> meshes)
+    {
+        var sum    = new Dictionary<string, Vector3>(StringComparer.Ordinal);
+        var weight = new Dictionary<string, float>(StringComparer.Ordinal);
+        var most   = new Dictionary<string, float>(StringComparer.Ordinal);
+        foreach (var mesh in meshes.Where(m => m.Kind == "face"))
+            for (var v = 0; v < mesh.Rest.Length; ++v)
+                for (var k = 0; k < mesh.Slots; ++k)
+                {
+                    var w = mesh.Weights[v * mesh.Slots + k];
+                    var b = mesh.BoneIndices[v * mesh.Slots + k];
+                    if (w <= 0 || b >= mesh.BoneNames.Length)
+                        continue;
+                    var name = mesh.BoneNames[b];
+                    sum[name]    = sum.GetValueOrDefault(name) + mesh.Rest[v] * (w * w);
+                    weight[name] = weight.GetValueOrDefault(name) + w * w;
+                    most[name]   = MathF.Max(most.GetValueOrDefault(name), w);
+                }
+
+        var middle = new Dictionary<string, Vector3>(StringComparer.Ordinal);
+        foreach (var (name, total) in weight)
+            if (total > 0.5f)
+                middle[name] = sum[name] / total;
+
+        // onto the surface: the nearest point the bone holds firmly
+        var result  = new Dictionary<string, Vector3>(StringComparer.Ordinal);
+        var nearest = new Dictionary<string, float>(StringComparer.Ordinal);
+        foreach (var mesh in meshes.Where(m => m.Kind == "face"))
+            for (var v = 0; v < mesh.Rest.Length; ++v)
+                for (var k = 0; k < mesh.Slots; ++k)
+                {
+                    var w = mesh.Weights[v * mesh.Slots + k];
+                    var b = mesh.BoneIndices[v * mesh.Slots + k];
+                    if (w <= 0 || b >= mesh.BoneNames.Length)
+                        continue;
+                    var name = mesh.BoneNames[b];
+                    if (!middle.TryGetValue(name, out var m) || w < most[name] * 0.6f)
+                        continue;
+                    var d = Vector3.DistanceSquared(mesh.Rest[v], m);
+                    if (d < nearest.GetValueOrDefault(name, float.MaxValue))
+                    {
+                        nearest[name] = d;
+                        result[name]  = mesh.Rest[v];
+                    }
+                }
+
+        return result;
+    }
+
+    /// <summary> Where a spot of the stored model is on the character right now: it goes with its bone (place, turn and size). </summary>
+    public static Vector3 Carry(Vector3 spot, (Vector3 Position, Quaternion Rotation) rest, LiveBone live)
+        => live.Model + Vector3.Transform(Vector3.Transform(spot - rest.Position, Quaternion.Inverse(rest.Rotation)) * live.ModelScale, live.ModelRotation);
+
+    /// <summary>
     /// How well a rest pose belongs to the meshes: for each face bone, how far it is from the middle of the points it
     /// moves (a bone sits in or near what it moves). The middle value over all bones, in metres.
     /// </summary>

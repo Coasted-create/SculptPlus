@@ -4,6 +4,8 @@ The section for a version becomes the text of its release.
 
 ## 0.2.1
 
+- A part's dot, glow and arrows sit on the skin the part moves instead of on the point it turns around: the eye parts no longer pile up in the middle of the eye
+- The soft brush measures how far apart parts are by that skin, too
 - The soft brush no longer takes along parts that sit in the very same spot (with a brush on, every eye part moved as one)
 
 ## 0.2.0

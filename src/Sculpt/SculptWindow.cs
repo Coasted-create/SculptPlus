@@ -108,6 +108,8 @@ public sealed partial class SculptWindow : Window
         _aimGroup = null;
         SetHatHidden(false);
         CloseWorkbench();
+        _bench?.Clear();
+        _skin.Clear();
         _plugin.Camera.End();
         Sculptor.Stop();
     }
@@ -144,8 +146,9 @@ public sealed partial class SculptWindow : Window
             _dragging = null;
             _aimGroup = null;
             SetHatHidden(false);
-            if (_benchOpen || _bench is { Ready: true })
-                CloseWorkbench();
+            CloseWorkbench();
+            _bench?.Clear();
+            _skin.Clear();
             DrawWelcome(s);
             return;
         }
@@ -155,6 +158,7 @@ public sealed partial class SculptWindow : Window
             ? new Dictionary<string, LiveBone>()
             : SculptBones.Read(address, out _rootRotation, out _rootScale);
         Sculptor.Live = bones;
+        SkinTick(bones);
         Hotkeys();
 
         // ---- top row ----
@@ -1127,6 +1131,20 @@ public sealed partial class SculptWindow : Window
         Wrapped(Theme.Muted, Loc.T("On the part you hold: drag an arrow to move in that direction only (red: left and right, green: up and down, blue: front and back) · wheel on an arrow sizes in that direction · drag round a ring to turn around its direction."));
         Wrapped(Theme.Muted, Loc.T("For fine work: Ctrl+drag moves a tenth as far · Alt + arrow keys move the part you hold a tiny step · with the glow, Ctrl + wheel goes through parts that lie on top of each other · hold Alt to turn the camera with the mouse over the face."));
         Wrapped(Theme.Muted, Loc.T("Anywhere: Ctrl+Z undo · Ctrl+Y redo · hold Alt hides the dots · hold Ctrl+Alt shows the character without the sculpt · hold Alt+B shows the A/B shape · Alt+F freezes or lets you move · Alt+H hides the dot of the part you hold."));
+
+        var skin = Config.SkinDots;
+        if (ImGui.Checkbox(Loc.T("Dots sit on the skin they move"), ref skin))
+        {
+            Config.SkinDots = skin;
+            _plugin.SaveConfig();
+        }
+
+        Tip(Loc.T("A part's dot (and its glow) sits where the skin is that it moves: the upper eyelid's on the upper eyelid. Without it, it sits on the point the part turns around, which for every eye part is the middle of the eye."));
+        if (skin && _bench is { } head)
+        {
+            ImGui.SameLine();
+            ImGui.TextColored(Theme.Faint, head.Problem.Length > 0 || head.Ready && head.Still ? Loc.T("(not available for this head)") : head.Ready ? Loc.F("({0} parts placed)", _skin.Count) : Loc.T("(loading…)"));
+        }
 
         var arrows = Config.Arrows;
         if (ImGui.Checkbox(Loc.T("Arrows and rings on the part you hold"), ref arrows))
