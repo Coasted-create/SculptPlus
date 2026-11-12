@@ -30,6 +30,15 @@ public sealed class Configuration : IPluginConfiguration
     /// <summary> The Freeze button: you stand completely still while sculpting (Speed is the slow motion when it is off). </summary>
     public bool Frozen { get; set; } = true;
 
+    /// <summary> Parts light up under the mouse instead of showing a dot each. </summary>
+    public bool Glow { get; set; } = true;
+
+    /// <summary> Picking an area on the map also sends the camera there. </summary>
+    public bool FocusOnZone { get; set; } = true;
+
+    /// <summary> The step of the "tiny steps" arrows, in millimetres. </summary>
+    public float NudgeStep { get; set; } = 0.2f;
+
     /// <summary> Single parts whose dot you hid (they still show while you hold them, e.g. after finding them by name). </summary>
     public HashSet<string> HiddenDots { get; set; } = new();
 

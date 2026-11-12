@@ -106,52 +106,79 @@ public sealed partial class SculptWindow
     private static string Label(string bone)
         => SculptBones.Info(bone)?.Display ?? bone;
 
-    /// <summary> One small button per part: click turns its dots on or off, right-click shows only that part. </summary>
-    private void DrawDotFilter(float s)
+    /// <summary> How parts show (glow or dots), the map to pick an area, and every area as a button for the rest. </summary>
+    private void DrawDotFilter(Dictionary<string, LiveBone> bones, float s)
     {
-        ImGui.TextColored(Theme.Muted, Loc.T("Dots for:"));
-        ImGui.SameLine();
-        if (ImGui.SmallButton(Loc.T("Face") + "##dotsface"))
-            Only(FaceGroups.Where(g => g != "teeth"));
-        Tip(Loc.T("Only the face (without teeth and tongue)."));
-        ImGui.SameLine();
-        if (ImGui.SmallButton(Loc.T("Body") + "##dotsbody"))
-            Only(BodyGroups.Where(g => g != "hands"));
-        Tip(Loc.T("Only the body (without fingers)."));
-        ImGui.SameLine();
-        if (ImGui.SmallButton(Loc.T("Both") + "##dotsboth"))
-            Only(FaceGroups.Concat(BodyGroups).Where(g => g is not ("teeth" or "hands")));
-        ImGui.SameLine();
-        if (ImGui.SmallButton(Loc.T("None") + "##dotsnone"))
-            Only(Array.Empty<string>());
-        ImGui.SameLine();
-        ImGui.TextColored(Theme.Faint, Loc.T("right-click a part: only that one"));
+        DrawMap(bones, s);
 
-        var width = ImGui.GetContentRegionAvail().X;
-        var x     = 0f;
-        foreach (var group in FaceGroups.Concat(BodyGroups).Concat(OtherGroups))
+        // next to the maps when there is room, else below them: how parts show, and the quick choices
+        var glowLabel = Loc.T("a glow under the mouse");
+        var need      = ImGui.CalcTextSize(glowLabel).X + 40 * s;
+        if (ImGui.GetContentRegionAvail().X - MapWidth(s) - 12 * s >= need)
+            ImGui.SameLine(0, 12 * s);
+        ImGui.BeginGroup();
+        ImGui.TextColored(Theme.Muted, Loc.T("Parts show as:"));
+        if (ImGui.RadioButton(glowLabel + "##glow", Config.Glow))
         {
-            var label = GroupLabel(group);
-            var w     = ImGui.CalcTextSize(label).X + ImGui.GetStyle().FramePadding.X * 2 + 6 * s;
-            if (x > 0 && x + w > width)
-                x = 0;
-            else if (x > 0)
-                ImGui.SameLine(0, 4 * s);
-            x += w + 4 * s;
+            Config.Glow = true;
+            _plugin.SaveConfig();
+        }
 
-            var on = ShownGroups.Contains(group);
-            ImGui.PushStyleColor(ImGuiCol.Button, on ? Theme.AccentDeep : Theme.Card);
-            ImGui.PushStyleColor(ImGuiCol.Text, on ? new Vector4(1, 1, 1, 1) : Theme.Muted);
-            if (ImGui.SmallButton(label + "##dots" + group))
+        Tip(Loc.T("Nothing lies on the character. The part under the mouse lights up, with its name; where parts lie on top of each other, Ctrl + wheel goes through them. What you changed keeps a faint shimmer."));
+        if (ImGui.RadioButton(Loc.T("dots") + "##dots", !Config.Glow))
+        {
+            Config.Glow = false;
+            _plugin.SaveConfig();
+        }
+
+        Tip(Loc.T("Every part has a dot on the character, all visible at once."));
+        if (ImGui.SmallButton(Loc.T("Face") + "##dotsface"))
+            ShowOnly(FaceGroups.Where(g => g != "teeth"));
+        Tip(Loc.T("Only the face (without teeth and tongue)."));
+        ImGui.SameLine(0, 4 * s);
+        if (ImGui.SmallButton(Loc.T("Body") + "##dotsbody"))
+            ShowOnly(BodyGroups.Where(g => g != "hands"));
+        Tip(Loc.T("Only the body (without fingers)."));
+        if (ImGui.SmallButton(Loc.T("Both") + "##dotsboth"))
+            ShowOnly(FaceGroups.Concat(BodyGroups).Where(g => g is not ("teeth" or "hands")));
+        ImGui.SameLine(0, 4 * s);
+        if (ImGui.SmallButton(Loc.T("None") + "##dotsnone"))
+            ShowOnly(Array.Empty<string>());
+        ImGui.EndGroup();
+
+        var all = ImGui.TreeNodeEx(Loc.T("Every area as a button") + "###allareas", ImGuiTreeNodeFlags.SpanAvailWidth);
+        Tip(Loc.T("Also the areas that are not on the map: teeth and tongue, hair, clothes, and what has no name."));
+        if (all)
+        {
+            var width = ImGui.GetContentRegionAvail().X;
+            var x     = 0f;
+            foreach (var group in FaceGroups.Concat(BodyGroups).Concat(OtherGroups))
             {
-                if (!ShownGroups.Remove(group))
-                    ShownGroups.Add(group);
-                _plugin.SaveConfig();
+                var label = GroupLabel(group);
+                var w     = ImGui.CalcTextSize(label).X + ImGui.GetStyle().FramePadding.X * 2 + 6 * s;
+                if (x > 0 && x + w > width)
+                    x = 0;
+                else if (x > 0)
+                    ImGui.SameLine(0, 4 * s);
+                x += w + 4 * s;
+
+                var on = ShownGroups.Contains(group);
+                ImGui.PushStyleColor(ImGuiCol.Button, on ? Theme.AccentDeep : Theme.Card);
+                ImGui.PushStyleColor(ImGuiCol.Text, on ? new Vector4(1, 1, 1, 1) : Theme.Muted);
+                if (ImGui.SmallButton(label + "##dots" + group))
+                {
+                    if (!ShownGroups.Remove(group))
+                        ShownGroups.Add(group);
+                    _plugin.SaveConfig();
+                }
+
+                ImGui.PopStyleColor(2);
+                if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                    ShowOnly(new[] { group });
             }
 
-            ImGui.PopStyleColor(2);
-            if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-                Only(new[] { group });
+            ImGui.TextColored(Theme.Faint, Loc.T("right-click a part: only that one"));
+            ImGui.TreePop();
         }
 
         // single dots you hid
@@ -167,15 +194,6 @@ public sealed partial class SculptWindow
             }
 
             Tip(Loc.T("To bring back just one: find it by name under \"The part you hold\" and click \"Show its dot again\"."));
-        }
-
-        void Only(IEnumerable<string> groups)
-        {
-            var list = groups.ToList();
-            ShownGroups.Clear();
-            foreach (var g in list)
-                ShownGroups.Add(g);
-            _plugin.SaveConfig();
         }
     }
 
@@ -324,6 +342,7 @@ public sealed partial class SculptWindow
         var io     = ImGui.GetIO();
         var mouse  = io.MousePos;
         var radius = 5f * s * Math.Clamp(Config.DotSize, 0.5f, 2.5f);
+        var glow   = Config.Glow;
 
         // the far half of the face is left out (you would see those dots through the head)
         // (told by direction, not by depth: a part counts as "far" when, seen from the middle of the head, it points
@@ -352,7 +371,7 @@ public sealed partial class SculptWindow
             // A dot that would lie on top of another one is put next to it, so no part goes missing as you turn the
             // camera; only when there is no room around it at all is it left out until you zoom in.
             var gap = (radius * 1.7f) * (radius * 1.7f);
-            if (!held && shown.Any(o => Vector2.DistanceSquared(o.At, at) < gap))
+            if (!held && !glow && shown.Any(o => Vector2.DistanceSquared(o.At, at) < gap))
             {
                 var placed = false;
                 for (var ring = 1; ring <= 2 && !placed; ++ring)
@@ -426,7 +445,15 @@ public sealed partial class SculptWindow
                 }
             }
 
-            if (target is null)
+            if (target is null && glow)
+            {
+                // nothing is drawn on the character until the mouse is on a part: that one lights up
+                if (free && PickGlow(shown, mouse, s) is { } lit)
+                    target = (GrabKind.Dot, 0, lit.Bone, lit.At);
+                else if (!free)
+                    _glowPick = null;
+            }
+            else if (target is null)
             {
                 var best = (radius * 2.6f) * (radius * 2.6f);
                 foreach (var x in shown)
@@ -450,6 +477,26 @@ public sealed partial class SculptWindow
         {
             var hot    = target is { Kind: GrabKind.Dot } t && t.Bone.Name == bone.Name;
             var edited = Sculptor.IsEdited(bone.Name);
+            if (glow)
+            {
+                // only the part under the mouse lights up; what you changed keeps a faint shimmer, what you hold a thin ring
+                if (hot)
+                {
+                    Halo(draw, at, Math.Clamp(PixelsPerMetre(bone.World) * 0.011f, 13f * s, 70f * s), Theme.Accent, 0.55f);
+                    draw.AddCircleFilled(at, 2.2f * s, Theme.U32(new Vector4(1, 1, 1, 0.9f)));
+                }
+                else if (edited)
+                    Halo(draw, at, 7f * s, Sculptor.AtLimit(bone.Name) ? Theme.Warn : Theme.Good, 0.3f);
+
+                if (bone.Name == _selected)
+                    draw.AddCircle(at, 6f * s, Theme.U32(Theme.Accent with { W = 0.9f }), 0, 1.5f * s);
+                if (Sculptor.Locked.Contains(bone.Name) && (hot || bone.Name == _selected))
+                    draw.AddCircle(at, 9f * s, Theme.U32(Theme.Warn), 0, 1.5f * s);
+                if (brush > 0 && target is { } lit && lit.Bone.Name != bone.Name && BrushWeight(lit.Bone, bone, brush) is var weight and > 0)
+                    Halo(draw, at, 9f * s, Theme.Accent, 0.25f * weight);
+                continue;
+            }
+
             var colour = bone.Name == _selected ? Theme.Accent : edited && Sculptor.AtLimit(bone.Name) ? Theme.Warn : edited ? Theme.Good : new Vector4(1, 1, 1, 0.75f);
             draw.AddCircleFilled(at, hot ? radius * 1.5f : radius, Theme.U32(new Vector4(0, 0, 0, 0.55f)));
             draw.AddCircleFilled(at, hot ? radius * 1.2f : radius * 0.7f, Theme.U32(colour));
@@ -472,8 +519,8 @@ public sealed partial class SculptWindow
         }
 
         // a tiny window under the mouse takes the click, so the game does not turn the camera or target something
-        var box = new Vector2(MathF.Max(radius * 4.4f, 18f * s));
-        var pos = _dragging is not null || grab.Kind != GrabKind.Dot ? mouse - box / 2 : grab.At - box / 2;
+        var box = new Vector2(MathF.Max(radius * 4.4f, (glow ? 30f : 18f) * s));
+        var pos = _dragging is not null || grab.Kind != GrabKind.Dot || glow ? mouse - box / 2 : grab.At - box / 2;
         _grabMin  = pos;
         _grabSize = box;
         ImGui.SetNextWindowPos(pos);
@@ -507,7 +554,8 @@ public sealed partial class SculptWindow
             var held = _turning ? ImGui.IsMouseDown(ImGuiMouseButton.Right) : ImGui.IsMouseDown(ImGuiMouseButton.Left);
             if (_dragging == name && ImGui.IsItemActive() && held)
             {
-                var delta = io.MouseDelta;
+                // Ctrl: a tenth of the way, for the last bit
+                var delta = io.KeyCtrl ? io.MouseDelta * 0.1f : io.MouseDelta;
                 if (delta == Vector2.Zero)
                 {
                 }
@@ -575,7 +623,7 @@ public sealed partial class SculptWindow
             if (ImGui.IsItemHovered())
             {
                 var wheel = io.MouseWheel;
-                if (wheel != 0 && grab.Kind != GrabKind.Ring)
+                if (wheel != 0 && grab.Kind != GrabKind.Ring && !io.KeyCtrl)
                 {
                     if ((DateTime.UtcNow - _lastWheelCheckpoint).TotalSeconds > 0.8)
                         Sculptor.Checkpoint();
@@ -592,7 +640,7 @@ public sealed partial class SculptWindow
                     {
                         GrabKind.Arrow => Loc.F("Drag: move {0} only · Wheel: bigger or smaller in that direction", AxisName(grab.Axis)),
                         GrabKind.Ring  => Loc.F("Drag round the ring: turn around the direction {0}", AxisName(grab.Axis)),
-                        _              => Label(name) + "\n" + Loc.T("Drag: move · Shift+drag: nearer/further · Right-drag: turn · Wheel: size · Right-click: put back"),
+                        _              => (glow ? GlowLabel(name) : Label(name)) + "\n" + Loc.T("Drag: move · Shift+drag: nearer/further · Ctrl+drag: ten times finer · Right-drag: turn · Wheel: size · Right-click: put back"),
                     });
             }
         }

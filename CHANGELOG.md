@@ -2,6 +2,14 @@
 
 The section for a version becomes the text of its release.
 
+## 0.2.0
+
+- Parts light up under the mouse instead of showing a dot each (dots stay as a choice); Ctrl + wheel goes through parts that lie on top of each other
+- A map of the face and body: click an area to work on it
+- Sliders for the area you picked: eye shape, lids, brows, nose, lips, cheekbones, chin and more
+- Focus camera: front, three-quarter and side views, zoom far closer than the game allows, the picked area in the middle; "Hide my hat"
+- Fine work: Ctrl+drag is ten times finer, tiny steps with arrows or Alt + arrow keys
+
 ## 0.1.5
 
 - Hide the dot of a single part ("Hide its dot" under the part you hold, or Alt+H); "Show them again" brings them back

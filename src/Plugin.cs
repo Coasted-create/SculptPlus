@@ -30,6 +30,7 @@ public sealed class Plugin : IDalamudPlugin
     public Configuration Config { get; }
     public Theme Theme { get; }
     public AnimationSpeed Speed { get; }
+    public FocusCamera Camera { get; }
     public Sculptor Sculptor { get; }
     public ShapePictures Pictures { get; }
     public SculptWindow Window { get; }
@@ -51,6 +52,7 @@ public sealed class Plugin : IDalamudPlugin
         ApplyLanguage();
         Theme    = new Theme(pi.UiBuilder);
         Speed    = new AnimationSpeed(interop, log);
+        Camera   = new FocusCamera(log);
         Sculptor = new Sculptor(this);
         Pictures = new ShapePictures(this);
         Window   = new SculptWindow(this);
@@ -97,6 +99,10 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             Sculptor.Update();
+
+            // sculpting ended (stopped, zoned, logged out): the camera goes back to how the game had it
+            if (!Sculptor.Active && Camera.On)
+                Camera.End();
         }
         catch (Exception ex)
         {
@@ -170,6 +176,7 @@ public sealed class Plugin : IDalamudPlugin
             d.Dispose();
         _windows.RemoveAllWindows();
         Sculptor.Dispose();
+        Camera.Dispose();
         Speed.Dispose();
         Theme.Dispose();
     }

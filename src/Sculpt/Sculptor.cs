@@ -286,6 +286,11 @@ public sealed class Sculptor : IDisposable
     public JObject Compose()
     {
         var result = (JObject)_hand.DeepClone();
+
+        // which way is out of the face: the nose lies in front of the head bone
+        var front = 1f;
+        if (Live.TryGetValue("j_kao", out var headBone) && (Live.TryGetValue("j_f_hana", out var noseBone) || Live.TryGetValue("j_f_memoto", out noseBone)))
+            front = noseBone.Model.Z - headBone.Model.Z < 0 ? -1f : 1f;
         foreach (var (key, value) in _sliders)
         {
             if (MathF.Abs(value) < 0.001f || Array.Find(Sliders, s => s.Key == key) is not { } slider)
@@ -301,6 +306,8 @@ public sealed class Sculptor : IDisposable
                     m += ToLocal(bone, new Vector3(MathF.Sign(bone.Model.X) * slider.Outward * value, 0, 0));
                 if (slider.Move != Vector3.Zero)
                     m += ToLocal(bone, slider.Move * value);
+                if (slider.Forward != 0)
+                    m += ToLocal(bone, new Vector3(0, 0, front * slider.Forward * value));
                 Write(result, bone.Name, m, t, s);
             }
         }
@@ -574,7 +581,7 @@ public sealed class Sculptor : IDisposable
     /// One slider: which bones it touches and what one full step does to them. Sizes are in the model's directions (wide,
     /// high, deep; as powers, 0.2 is about a fifth bigger); Outward pushes a part away from your middle line (metres).
     /// </summary>
-    public sealed record Slider(string Key, string Group, string[] Families, string[] Bones, Vector3 Size, float Outward, Vector3 Move)
+    public sealed record Slider(string Key, string Group, string[] Families, string[] Bones, Vector3 Size, float Outward, Vector3 Move, float Forward = 0)
     {
         public bool Has(string bone)
             => Bones.Contains(bone) || Families.Length > 0 && SculptBones.Info(bone) is { } info && Families.Contains(info.Family);
@@ -611,7 +618,65 @@ public sealed class Sculptor : IDisposable
         new("feet", "Body", None, Both("j_asi_d"), new Vector3(0.16f), 0, Vector3.Zero),
         new("tail", "Body", new[] { "Tail" }, None, new Vector3(0.22f), 0, Vector3.Zero),
         new("height", "Body", None, new[] { "n_root" }, new Vector3(0.07f), 0, Vector3.Zero),
+
+        // The fine ones: they show next to the area you picked, not in the long list. Forward pushes a part out of the
+        // face (towards where the nose points), in metres.
+        new("eyewide", "Fine", None, Both("j_f_mab", "j_f_eye"), new Vector3(0.14f, 0, 0), 0, Vector3.Zero),
+        new("eyehigh", "Fine", None, Both("j_f_mab", "j_f_eye"), new Vector3(0, 0.14f, 0), 0, Vector3.Zero),
+        new("iris", "Fine", None, Both("j_f_eyepuru"), new Vector3(0.20f), 0, Vector3.Zero),
+        new("eyeouter", "Fine", None, Both("j_f_mabup_02out", "j_f_mabdn_02out"), Vector3.Zero, 0, new Vector3(0, 0.0015f, 0)),
+        new("lidup", "Fine", None, Both("j_f_mabup_01", "j_f_mabup_02out", "j_f_mabup_03in", "j_f_umab"), Vector3.Zero, 0, new Vector3(0, 0.0012f, 0)),
+        new("liddown", "Fine", None, Both("j_f_mabdn_01", "j_f_mabdn_02out", "j_f_mabdn_03in", "j_f_dmab"), Vector3.Zero, 0, new Vector3(0, -0.0012f, 0)),
+
+        new("browsouter", "Fine", None, Both("j_f_mayu"), Vector3.Zero, 0, new Vector3(0, 0.0020f, 0)),
+        new("browsinner", "Fine", None, Both("j_f_miken", "j_f_miken_01"), Vector3.Zero, 0, new Vector3(0, 0.0020f, 0)),
+        new("browsapart", "Fine", None, Both("j_f_mayu", "j_f_miken", "j_f_mmayu", "j_f_miken_01", "j_f_miken_02"), Vector3.Zero, 0.0015f, Vector3.Zero),
+        new("browsout", "Fine", None, Both("j_f_mayu", "j_f_miken", "j_f_mmayu", "j_f_miken_01", "j_f_miken_02"), Vector3.Zero, 0, Vector3.Zero, 0.0015f),
+
+        new("nosewide", "Fine", None, new[] { "j_f_hana", "j_f_hana_l", "j_f_hana_r" }, new Vector3(0.20f, 0, 0), 0, Vector3.Zero),
+        new("nostrils", "Fine", None, Both("j_f_hana"), Vector3.Zero, 0.0012f, Vector3.Zero),
+        new("noseup", "Fine", None, new[] { "j_f_hana", "j_f_hana_l", "j_f_hana_r" }, Vector3.Zero, 0, new Vector3(0, 0.0015f, 0)),
+        new("noseout", "Fine", None, new[] { "j_f_hana", "j_f_hana_l", "j_f_hana_r" }, Vector3.Zero, 0, Vector3.Zero, 0.0020f),
+        new("bridge", "Fine", None, new[] { "j_f_uhana", "j_f_memoto" }, Vector3.Zero, 0, Vector3.Zero, 0.0015f),
+
+        new("upperlip", "Fine", None, Both("j_f_ulip_01", "j_f_ulip_02", "j_f_umlip_01", "j_f_umlip_02").Concat(new[] { "j_f_ulip_a", "j_f_ulip_b" }).ToArray(), new Vector3(0.22f), 0, Vector3.Zero),
+        new("lowerlip", "Fine", None, Both("j_f_dlip_01", "j_f_dlip_02", "j_f_dmlip_01", "j_f_dmlip_02").Concat(new[] { "j_f_dlip_a", "j_f_dlip_b" }).ToArray(), new Vector3(0.22f), 0, Vector3.Zero),
+        new("corners", "Fine", None, Both("j_f_uslip", "j_f_dslip", "j_f_lip"), Vector3.Zero, 0, new Vector3(0, 0.0012f, 0)),
+        new("mouthup", "Fine", new[] { "Lips" }, Both("j_f_lip").Concat(new[] { "j_f_ulip_a", "j_f_ulip_b", "j_f_dlip_a", "j_f_dlip_b" }).ToArray(), Vector3.Zero, 0, new Vector3(0, 0.0015f, 0)),
+        new("lipsout", "Fine", new[] { "Lips" }, Both("j_f_lip").Concat(new[] { "j_f_ulip_a", "j_f_ulip_b", "j_f_dlip_a", "j_f_dlip_b" }).ToArray(), Vector3.Zero, 0, Vector3.Zero, 0.0015f),
+
+        new("cheekhigh", "Fine", None, Both("j_f_hoho", "j_f_shoho"), Vector3.Zero, 0, new Vector3(0, 0.0018f, 0)),
+        new("cheekwide", "Fine", new[] { "Cheeks" }, None, Vector3.Zero, 0.0015f, Vector3.Zero),
+        new("cheekout", "Fine", None, Both("j_f_hoho", "j_f_shoho"), Vector3.Zero, 0, Vector3.Zero, 0.0015f),
+
+        new("chinwide", "Fine", None, new[] { "j_f_dago", "j_f_ago" }, new Vector3(0.18f, 0, 0), 0, Vector3.Zero),
+        new("chinout", "Fine", None, new[] { "j_f_dago", "j_f_ago" }, Vector3.Zero, 0, Vector3.Zero, 0.0020f),
+
+        new("earslong", "Fine", new[] { "Ears" }, None, new Vector3(0, 0.22f, 0), 0, Vector3.Zero),
+        new("earsapart", "Fine", None, Both("j_mimi"), Vector3.Zero, 0.0020f, Vector3.Zero),
     };
+
+    /// <summary> The area on the map a slider belongs to (the same names as the dot filters). </summary>
+    public static string ZoneOf(string key)
+        => key switch
+        {
+            "lips" or "mouth" or "upperlip" or "lowerlip" or "corners" or "mouthup" or "lipsout"            => "lips",
+            "eyes" or "eyesapart" or "eyesup" or "eyewide" or "eyehigh" or "iris" or "eyeouter" or "lidup" or "liddown" => "eyes",
+            "brows" or "browsouter" or "browsinner" or "browsapart" or "browsout"                           => "brows",
+            "nose" or "nosewide" or "nostrils" or "noseup" or "noseout" or "bridge"                         => "nose",
+            "cheeks" or "cheekhigh" or "cheekwide" or "cheekout"                                            => "cheeks",
+            "jaw" or "chin" or "chinwide" or "chinout"                                                      => "jaw",
+            "ears" or "earslong" or "earsapart"                                                             => "ears",
+            "head"                                                                                          => "face",
+            "chest"                                                                                         => "chest",
+            "waist" or "hips" or "shoulders" or "height"                                                    => "torso",
+            "arms"                                                                                          => "arms",
+            "hands"                                                                                         => "hands",
+            "thighs" or "calves"                                                                            => "legs",
+            "feet"                                                                                          => "feet",
+            "tail"                                                                                          => "tail",
+            _                                                                                               => "other",
+        };
 
     public float SliderValue(string key)
         => _sliders.GetValueOrDefault(key);

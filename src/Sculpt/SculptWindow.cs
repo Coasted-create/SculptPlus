@@ -105,6 +105,9 @@ public sealed partial class SculptWindow : Window
     public override void OnClose()
     {
         _dragging = null;
+        _aimGroup = null;
+        SetHatHidden(false);
+        _plugin.Camera.End();
         Sculptor.Stop();
     }
 
@@ -138,6 +141,8 @@ public sealed partial class SculptWindow : Window
         if (!Sculptor.Active)
         {
             _dragging = null;
+            _aimGroup = null;
+            SetHatHidden(false);
             DrawWelcome(s);
             return;
         }
@@ -234,6 +239,7 @@ public sealed partial class SculptWindow : Window
             // only the top row; everything on the character goes on as usual
             EvolveTick();
             PictureTick(bones);
+            CameraTick(bones);
             if (!Sculptor.ShowOriginal && Sculptor.Compare is null && !_hideDots)
                 DrawHandles(bones, s);
             return;
@@ -271,7 +277,7 @@ public sealed partial class SculptWindow : Window
 
         Tip(Loc.T("No part goes further from where it started than a sensible range (a face part about 7 mm, sizes about 1.6 times). A dot at the edge of its range turns orange. Untick it for anything goes."));
 
-        DrawDotFilter(s);
+        DrawDotFilter(bones, s);
 
         if (Sculptor.Note.Length > 0)
             Wrapped(Theme.Muted, Sculptor.Note);
@@ -283,9 +289,13 @@ public sealed partial class SculptWindow : Window
               + $" · animation speed now: {AnimationSpeed.Read(address):0.00}, layers: {AnimationSpeed.ReadSlots(address)} (held where the game sets it: {(_plugin.Speed.Listening ? "yes" : "no")})");
 
         ImGui.BeginChild("##sculptbody", new Vector2(0, 0), false);
+        if (ImGui.CollapsingHeader(Loc.T("Camera"), ImGuiTreeNodeFlags.DefaultOpen))
+            DrawCameraControls(bones, s);
+        if (ImGui.CollapsingHeader(Loc.T("The area you picked"), ImGuiTreeNodeFlags.DefaultOpen))
+            DrawZone(bones, s);
         if (ImGui.CollapsingHeader(Loc.T("The part you hold"), ImGuiTreeNodeFlags.DefaultOpen))
             DrawSelected(bones, s);
-        if (ImGui.CollapsingHeader(Loc.T("Sliders"), ImGuiTreeNodeFlags.DefaultOpen))
+        if (ImGui.CollapsingHeader(Loc.T("Sliders")))
             DrawSliders(s);
         if (ImGui.CollapsingHeader(Loc.T("Roll the dice")))
             DrawRandomizer(s);
@@ -307,6 +317,7 @@ public sealed partial class SculptWindow : Window
 
         EvolveTick();
         PictureTick(bones);
+        CameraTick(bones);
         if (!Sculptor.ShowOriginal && Sculptor.Compare is null && !_hideDots)
             DrawHandles(bones, s);
     }
@@ -443,6 +454,8 @@ public sealed partial class SculptWindow : Window
             ? Loc.T("The dot of this part is hidden; it only shows now because you hold it.")
             : Loc.T("Takes just this dot off the character (with \"Both sides together\", its twin too). Alt+H does the same. The part keeps its shape; find it by name to get it back."));
 
+        DrawNudge(bones[name], bones, s);
+
         var (move, turn, size) = Sculptor.Get(name);
         var changed = false;
         ImGui.SetNextItemWidth(-110 * s);
@@ -522,6 +535,33 @@ public sealed partial class SculptWindow : Window
             "hands"     => Loc.T("Bigger hands"),
             "feet"      => Loc.T("Bigger feet"),
             "tail"      => Loc.T("Bigger tail"),
+            "eyewide"    => Loc.T("Wider eyes"),
+            "eyehigh"    => Loc.T("Taller eyes"),
+            "iris"       => Loc.T("Bigger iris"),
+            "eyeouter"   => Loc.T("Outer corners higher"),
+            "lidup"      => Loc.T("Upper lid higher"),
+            "liddown"    => Loc.T("Lower lid lower"),
+            "browsouter" => Loc.T("Outer brows higher"),
+            "browsinner" => Loc.T("Inner brows higher"),
+            "browsapart" => Loc.T("Brows further apart"),
+            "browsout"   => Loc.T("Brows further out"),
+            "nosewide"   => Loc.T("Wider nose"),
+            "nostrils"   => Loc.T("Wider nostrils"),
+            "noseup"     => Loc.T("Nose higher"),
+            "noseout"    => Loc.T("Nose further out"),
+            "bridge"     => Loc.T("Bridge further out"),
+            "upperlip"   => Loc.T("Fuller upper lip"),
+            "lowerlip"   => Loc.T("Fuller lower lip"),
+            "corners"    => Loc.T("Corners of the mouth higher"),
+            "mouthup"    => Loc.T("Mouth higher"),
+            "lipsout"    => Loc.T("Lips further out"),
+            "cheekhigh"  => Loc.T("Cheekbones higher"),
+            "cheekwide"  => Loc.T("Cheeks further apart"),
+            "cheekout"   => Loc.T("Cheekbones further out"),
+            "chinwide"   => Loc.T("Wider chin"),
+            "chinout"    => Loc.T("Chin further out"),
+            "earslong"   => Loc.T("Longer ears"),
+            "earsapart"  => Loc.T("Ears further apart"),
             _           => Loc.T("Taller"),
         };
 
@@ -1080,6 +1120,7 @@ public sealed partial class SculptWindow : Window
     {
         Wrapped(Theme.Muted, Loc.T("On a dot: drag moves · Shift+drag nearer/further · right-drag turns · wheel sizes · right-click puts back."));
         Wrapped(Theme.Muted, Loc.T("On the part you hold: drag an arrow to move in that direction only (red: left and right, green: up and down, blue: front and back) · wheel on an arrow sizes in that direction · drag round a ring to turn around its direction."));
+        Wrapped(Theme.Muted, Loc.T("For fine work: Ctrl+drag moves a tenth as far · Alt + arrow keys move the part you hold a tiny step · with the glow, Ctrl + wheel goes through parts that lie on top of each other · hold Alt to turn the camera with the mouse over the face."));
         Wrapped(Theme.Muted, Loc.T("Anywhere: Ctrl+Z undo · Ctrl+Y redo · hold Alt hides the dots · hold Ctrl+Alt shows the character without the sculpt · hold Alt+B shows the A/B shape · Alt+F freezes or lets you move · Alt+H hides the dot of the part you hold."));
 
         var arrows = Config.Arrows;
