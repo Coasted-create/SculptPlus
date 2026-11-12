@@ -351,7 +351,7 @@ public sealed partial class SculptWindow
                 continue;
             Sculptor.Nudge(bone, model * share);
             if (Sculptor.Symmetry && twin is not null && bones.TryGetValue(twin, out var other) && moved.Add(twin))
-                Sculptor.Nudge(other, (model with { X = -model.X }) * share);
+                Sculptor.NudgeTwin(bone, other, model * share);
         }
     }
 }

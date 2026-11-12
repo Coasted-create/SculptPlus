@@ -293,7 +293,7 @@ public sealed partial class SculptWindow
             return null;
         var gizmo = new Gizmo { Bone = bone, Centre = centre, Length = Math.Clamp(70f * s * 1.5f / perMetre, 0.004f, 0.8f) };
         for (var a = 0; a < 3; ++a)
-            gizmo.World[a] = Vector3.Transform(Axes[a], _rootRotation);
+            gizmo.World[a] = Vector3.Transform(Sculptor.BodyToSeen(bone, Axes[a]), _rootRotation); // the part's own side, up and front
         for (var a = 0; a < 3; ++a)
         {
             gui.WorldToScreen(bone.World + gizmo.World[a] * gizmo.Length, out gizmo.Tip[a]);
@@ -592,7 +592,7 @@ public sealed partial class SculptWindow
                     {
                         var angle = Vector2.Dot(delta, Vector2.Normalize(tangent)) / reach;
                         _lastAction = $"turned {name} {angle * 180 / MathF.PI:0.0}° around {AxisName(_dragAxis)}";
-                        Sculptor.TurnModel(grab.Bone, Axes[_dragAxis], angle);
+                        Sculptor.TurnModel(grab.Bone, Sculptor.BodyToSeen(grab.Bone, Axes[_dragAxis]), angle);
                     }
                 }
                 else if (_dragKind == GrabKind.Dot && Camera(grab.Bone.World) is { } cam)
@@ -758,7 +758,7 @@ public sealed partial class SculptWindow
                 continue;
             Sculptor.Nudge(bone, model * w);
             if (Sculptor.Symmetry && twin is not null && bones.TryGetValue(twin, out var other) && moved.Add(twin))
-                Sculptor.Nudge(other, (model with { X = -model.X }) * w);
+                Sculptor.NudgeTwin(bone, other, model * w);
         }
     }
 

@@ -88,6 +88,7 @@ public sealed class Sculptor : IDisposable
         }
 
         _address = me.Address;
+        ReadRestPose();
         _ipc.DeleteTemporary(0); // a leftover of ours would hide the real profile
         _base      = new JObject();
         _profileId = _ipc.ActiveProfileId(0);
@@ -289,7 +290,9 @@ public sealed class Sculptor : IDisposable
 
         // which way is out of the face: the nose lies in front of the head bone
         var front = 1f;
-        if (Live.TryGetValue("j_kao", out var headBone) && (Live.TryGetValue("j_f_hana", out var noseBone) || Live.TryGetValue("j_f_memoto", out noseBone)))
+        if (_restPose.TryGetValue("j_kao", out var headRest) && (_restPose.TryGetValue("j_f_hana", out var noseRest) || _restPose.TryGetValue("j_f_memoto", out noseRest)))
+            front = noseRest.Position.Z - headRest.Position.Z < 0 ? -1f : 1f;
+        else if (Live.TryGetValue("j_kao", out var headBone) && (Live.TryGetValue("j_f_hana", out var noseBone) || Live.TryGetValue("j_f_memoto", out noseBone)))
             front = noseBone.Model.Z - headBone.Model.Z < 0 ? -1f : 1f;
         foreach (var (key, value) in _sliders)
         {
@@ -301,9 +304,11 @@ public sealed class Sculptor : IDisposable
                     continue;
                 var (m, t, s) = Read(result[bone.Name]);
                 if (slider.Size != Vector3.Zero)
-                    s *= LocalSize(bone, slider.Size * value);
-                if (slider.Outward != 0 && MathF.Abs(bone.Model.X) > 0.0005f)
-                    m += ToLocal(bone, new Vector3(MathF.Sign(bone.Model.X) * slider.Outward * value, 0, 0));
+                    s *= slider.Key is "arms" or "thighs" or "calves" && LimbRuns(bone) is { } along
+                        ? SculptMath.AroundSize(Stand(bone), along, slider.Size.X * value)
+                        : LocalSize(bone, slider.Size * value);
+                if (slider.Outward != 0 && SideOf(bone) != 0)
+                    m += ToLocal(bone, new Vector3(SideOf(bone) * slider.Outward * value, 0, 0));
                 if (slider.Move != Vector3.Zero)
                     m += ToLocal(bone, slider.Move * value);
                 if (slider.Forward != 0)
@@ -315,13 +320,102 @@ public sealed class Sculptor : IDisposable
         return result;
     }
 
-    /// <summary> A size change given in the model's directions (wide, high, deep), as factors for the bone's own axes. </summary>
-    private static Vector3 LocalSize(LiveBone bone, Vector3 wideHighDeep)
-        => SculptMath.LocalSize(bone.ModelRotation, wideHighDeep);
+    /// <summary>
+    /// How every bone stands in the skeleton's rest pose. Side, up and front are meant for the body as it rests (upright,
+    /// arms out, face straight ahead), not for the pose of the moment: a tilted head would otherwise turn "up" for the
+    /// face into something else, and the other side of the face would not mirror. Empty when it could not be read; the
+    /// pose of the moment is used then, as before.
+    /// </summary>
+    private Dictionary<string, (Vector3 Position, Quaternion Rotation)> _restPose = new();
 
-    /// <summary> Customize+ adds a move turned by the bone's own rotation, so moves are stored in the bone's directions. </summary>
-    private static Vector3 ToLocal(LiveBone bone, Vector3 model)
-        => Vector3.Transform(model, Quaternion.Inverse(bone.ModelRotation));
+    private void ReadRestPose()
+    {
+        _restPose = new Dictionary<string, (Vector3, Quaternion)>();
+        try
+        {
+            var rest = SculptBones.ReadRest(_address, true);
+
+            // only a rest pose that is its own mirror image is believed: every left part lies where its right twin does, flipped
+            var apart = new List<float>();
+            foreach (var (name, at) in rest)
+                if (name.EndsWith("_l", StringComparison.Ordinal) && SculptBones.MirrorOf(name) is { } twin && rest.TryGetValue(twin, out var other))
+                    apart.Add(Vector3.Distance(at.Position, other.Position with { X = -other.Position.X }));
+            apart.Sort();
+            if (apart.Count >= 4 && apart[apart.Count / 2] < 0.01f)
+                _restPose = rest;
+            else
+                _plugin.Log.Warning($"Sculpt+: the skeleton's rest pose is not used ({apart.Count} pairs, {(apart.Count > 0 ? apart[apart.Count / 2] * 1000 : 0):0} mm apart).");
+        }
+        catch (Exception ex)
+        {
+            _plugin.Log.Warning($"Sculpt+: the skeleton's rest pose could not be read: {ex.Message}");
+        }
+    }
+
+    /// <summary> True when directions go by the rest pose (for the test line). </summary>
+    public bool ByRestPose => _restPose.Count > 0;
+
+    /// <summary> How the bone is turned for the purpose of directions: as it rests, else as it is. </summary>
+    private Quaternion Stand(LiveBone bone)
+        => _restPose.TryGetValue(bone.Name, out var rest) ? rest.Rotation : bone.ModelRotation;
+
+    /// <summary> Which side of the body a bone is on (as it rests): 1, -1, or 0 for the middle. </summary>
+    private float SideOf(LiveBone bone)
+    {
+        var x = _restPose.TryGetValue(bone.Name, out var rest) ? rest.Position.X : bone.Model.X;
+        return MathF.Abs(x) > 0.0005f ? MathF.Sign(x) : 0f;
+    }
+
+    /// <summary>
+    /// The direction an arm or leg part runs in as the body rests (towards the next part down the limb); null for
+    /// anything else, or without a rest pose. Arms rest slanted, so "thicker" cannot be said in side, up and front.
+    /// </summary>
+    private Vector3? LimbRuns(LiveBone bone)
+    {
+        var name = bone.Name;
+        if (name.Length < 3 || !_restPose.TryGetValue(name, out var here))
+            return null;
+        var side = name[^2..];
+        var next = name[..^2] switch
+        {
+            "j_ude_a" => "j_ude_b",
+            "j_ude_b" => "j_te",
+            "j_asi_a" => "j_asi_b",
+            "j_asi_b" => "j_asi_c",
+            "j_asi_c" => "j_asi_d",
+            _         => null,
+        };
+        if (next is null || !_restPose.TryGetValue(next + side, out var there))
+            return null;
+        var runs = there.Position - here.Position;
+        return runs.LengthSquared() > 1e-8f ? Vector3.Normalize(runs) : null;
+    }
+
+    /// <summary> A size change given in the body's directions (wide, high, deep), as factors for the bone's own axes. </summary>
+    private Vector3 LocalSize(LiveBone bone, Vector3 wideHighDeep)
+        => SculptMath.LocalSize(Stand(bone), wideHighDeep);
+
+    /// <summary>
+    /// A move given in the body's directions (side, up, front; as the body rests), in the bone's own directions: that is
+    /// how Customize+ stores it (it adds a move turned by the bone's own rotation).
+    /// </summary>
+    private Vector3 ToLocal(LiveBone bone, Vector3 body)
+        => Vector3.Transform(body, Quaternion.Inverse(Stand(bone)));
+
+    /// <summary> A move as you see it on the character right now (in the model as it is posed), in the bone's own directions. </summary>
+    private static Vector3 SeenToLocal(LiveBone bone, Vector3 seen)
+        => Vector3.Transform(seen, Quaternion.Inverse(bone.ModelRotation));
+
+    /// <summary> A direction as you see it on the character right now, as a direction of the resting body. </summary>
+    private Vector3 SeenToBody(LiveBone bone, Vector3 seen)
+        => Vector3.Transform(SeenToLocal(bone, seen), Stand(bone));
+
+    /// <summary>
+    /// A direction of the resting body (side, up, front) as it lies on the character right now for this bone: with the
+    /// head tilted, "up" for a part of the face is tilted with it. For the arrows on the part you hold.
+    /// </summary>
+    public Vector3 BodyToSeen(LiveBone bone, Vector3 body)
+        => Vector3.Transform(ToLocal(bone, body), bone.ModelRotation);
 
     private static (Vector3 Move, Vector3 Turn, Vector3 Size) Read(JToken? t)
         => t is JObject o ? (Vec(o["Translation"], 0), Vec(o["Rotation"], 0), Vec(o["Scaling"], 1)) : (Vector3.Zero, Vector3.Zero, Vector3.One);
@@ -441,11 +535,22 @@ public sealed class Sculptor : IDisposable
         _blendFrom = _blendTo = null;
     }
 
-    /// <summary> Moves a bone by a distance in the model's directions (X: side, Y: up, Z: front), no twin. </summary>
+    /// <summary> Moves a bone by a distance as you see it on the character (in the model as it is posed), no twin. </summary>
     public void Nudge(LiveBone bone, Vector3 modelDelta)
     {
         var (m, t, s) = Get(bone.Name);
-        Set(bone.Name, m + ToLocal(bone, modelDelta), t, s);
+        Set(bone.Name, m + SeenToLocal(bone, modelDelta), t, s);
+    }
+
+    /// <summary>
+    /// Moves a bone's twin the mirrored way. The mirror is the body's own (through the middle of the face for a part of
+    /// the face, however the head is held), not the room's: the move is taken to the resting body, flipped left to right
+    /// there, and given to the twin.
+    /// </summary>
+    public void NudgeTwin(LiveBone bone, LiveBone twin, Vector3 modelDelta)
+    {
+        var (m, t, s) = Get(twin.Name);
+        Set(twin.Name, m + SculptMath.TwinMove(modelDelta, bone.ModelRotation, Stand(bone), Stand(twin)), t, s);
     }
 
     /// <summary> Moves a bone; its twin moves mirrored when symmetry is on. </summary>
@@ -453,20 +558,22 @@ public sealed class Sculptor : IDisposable
     {
         Nudge(bone, modelDelta);
         if (Symmetry && SculptBones.MirrorOf(bone.Name) is { } twin && Live.TryGetValue(twin, out var other))
-            Nudge(other, modelDelta with { X = -modelDelta.X });
+            NudgeTwin(bone, other, modelDelta);
     }
 
-    /// <summary> Turns a bone around an axis given in the model's directions; its twin turns the mirrored way. </summary>
+    /// <summary> Turns a bone around an axis as you see it on the character; its twin turns the mirrored way. </summary>
     public void TurnModel(LiveBone bone, Vector3 modelAxis, float radians)
     {
-        Spin(bone, modelAxis, radians);
+        Spin(bone, SeenToLocal(bone, modelAxis), radians);
         if (Symmetry && SculptBones.MirrorOf(bone.Name) is { } twin && Live.TryGetValue(twin, out var other))
-            Spin(other, modelAxis with { X = -modelAxis.X }, -radians);
+        {
+            var body = SeenToBody(bone, modelAxis);
+            Spin(other, ToLocal(other, body with { X = -body.X }), -radians);
+        }
     }
 
-    private void Spin(LiveBone bone, Vector3 modelAxis, float radians)
+    private void Spin(LiveBone bone, Vector3 axis, float radians)
     {
-        var axis = ToLocal(bone, modelAxis);
         if (axis.LengthSquared() < 1e-8f)
             return;
         var (m, t, s) = Get(bone.Name);
@@ -887,12 +994,12 @@ public sealed class Sculptor : IDisposable
             var (bm, bt, bs) = Read(_base[twin]);
 
             // the move, in the model's directions, flipped left to right
-            var move = Vector3.Transform(m - m0, bone.ModelRotation);
+            var move = Vector3.Transform(m - m0, Stand(bone));
             var mine = ToLocal(other, move with { X = -move.X });
 
             // the turn: as a turn in the model, flipped (a mirror keeps X and W and flips Y and Z), back into the twin's own directions
             var dq    = Quaternion.Inverse(ToQuaternion(t0)) * ToQuaternion(t);
-            var local = SculptMath.MirrorTurn(dq, bone.ModelRotation, other.ModelRotation);
+            var local = SculptMath.MirrorTurn(dq, Stand(bone), Stand(other));
             var turn  = ToEuler(ToQuaternion(bt) * local);
 
             var size = new Vector3(bs.X * Safe(s.X, s0.X), bs.Y * Safe(s.Y, s0.Y), bs.Z * Safe(s.Z, s0.Z));

@@ -124,6 +124,29 @@ Loc.SetLanguage("en");
 Check("English is the text itself", Loc.T("Keep") == "Keep");
 Check("placeholders are filled", Loc.F("Sculpt {0}", "Remi") == "Sculpt Remi");
 
+// ---- the other side: mirrored through the body's own middle, however it is posed ----
+Quaternion MirrorOfTurn(Quaternion q) => new(q.X, -q.Y, -q.Z, q.W);
+ok = true;
+for (var i = 0; i < 200; ++i)
+{
+    var boneRest = AnyTurn();
+    var extra    = i % 2 == 0 ? Quaternion.Identity : AnyTurn();        // rigs may turn a twin's own axes any way they like
+    var twinRest = MirrorOfTurn(boneRest) * extra;
+    var pose     = AnyTurn();                                           // the head (or body) is held some way
+    var seen     = new Vector3(0.3f, -0.2f, 0.5f);
+    var local    = SculptMath.TwinMove(seen, pose * boneRest, boneRest, twinRest);
+    var twinSeen = Vector3.Transform(local, pose * twinRest);           // what the twin does on the posed character
+    var inBody   = Vector3.Transform(seen, Quaternion.Inverse(pose));
+    var expected = Vector3.Transform(inBody with { X = -inBody.X }, pose);
+    ok &= Near(twinSeen, expected);
+}
+
+Check("the twin moves as the mirror image through the middle of the posed body", ok);
+
+var down = Quaternion.CreateFromYawPitchRoll(0.3f, 0.2f, -0.8f);
+var runs = Vector3.Transform(Vector3.UnitX, down);                      // a limb that runs along the bone's own X
+Check("thicker around a limb leaves its length alone", Near(SculptMath.AroundSize(down, runs, 0.2f), new Vector3(1, MathF.Exp(0.2f), MathF.Exp(0.2f))));
+
 // ---- the workbench ----
 // a small sheet of four points facing +Z: the left pair belongs to bone "a", the right pair to bone "b"
 SculptPlus.Model.DecodedMesh Sheet(bool normalsBack)

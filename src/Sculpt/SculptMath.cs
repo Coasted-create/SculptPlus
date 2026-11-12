@@ -34,6 +34,37 @@ public static class SculptMath
     }
 
     /// <summary> A move in the model's directions, in a bone's own directions (Customize+ adds moves turned by the bone). </summary>
+    /// <summary>
+    /// Thicker (or thinner) around a limb: a size change across the direction the limb runs in, none along it, as factors
+    /// for the bone's own axes. <paramref name="stand"/> is how the bone is turned, <paramref name="along"/> the limb's
+    /// direction in the same space, <paramref name="power"/> the change as a power of e.
+    /// </summary>
+    public static Vector3 AroundSize(Quaternion stand, Vector3 along, float power)
+    {
+        if (along.LengthSquared() < 1e-10f)
+            return new Vector3(MathF.Exp(power));
+        along = Vector3.Normalize(along);
+        float Axis(Vector3 own)
+        {
+            var d = Vector3.Dot(Vector3.Transform(own, stand), along);
+            return MathF.Exp(power * (1f - d * d));
+        }
+
+        return new Vector3(Axis(Vector3.UnitX), Axis(Vector3.UnitY), Axis(Vector3.UnitZ));
+    }
+
+    /// <summary>
+    /// The move for a bone's twin on the other side, in the twin's own directions. <paramref name="seen"/> is the move as
+    /// it shows on the posed character. It is taken into the bone's own directions (by how the bone stands right now),
+    /// from there to the resting body (by how the bone rests), flipped left to right, and into the twin's own directions
+    /// (by how the twin rests). So the mirror goes through the middle of the body or face itself, however it is posed.
+    /// </summary>
+    public static Vector3 TwinMove(Vector3 seen, Quaternion boneNow, Quaternion boneRest, Quaternion twinRest)
+    {
+        var body = Vector3.Transform(Vector3.Transform(seen, Quaternion.Inverse(boneNow)), boneRest);
+        return Vector3.Transform(body with { X = -body.X }, Quaternion.Inverse(twinRest));
+    }
+
     public static Vector3 ToLocal(Quaternion boneRotation, Vector3 model)
         => Vector3.Transform(model, Quaternion.Inverse(boneRotation));
 
